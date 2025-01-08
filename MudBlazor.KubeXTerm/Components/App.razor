@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />  
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />  
+    <link rel="icon" type="image/ico" href="favicon.ico" />
+
+    @* <link href="_content/Blazor.Extensions.XTerm/xterm.css" rel="stylesheet"> *@
+    <link href="_content/XtermBlazor/XtermBlazor.min.css" rel="stylesheet" />
+
+   <link href="MudBlazorTest.styles.css" rel="stylesheet" />
+   <link href="~/app.css" rel="stylesheet"/>
+
+    @* Theme Manager  *@
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
+    <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+</head>
+
+<body>
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+
+    <script src="https://cdn.jsdelivr.net/npm/@@xterm/addon-fit@0.9.0/lib/addon-fit.min.js"></script>
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="_content/XtermBlazor/XtermBlazor.min.js"></script>
+
+
+@*    
+    <script src="_framework/blazor.server.js"></script> *@
+
+    <!-- Load the XtermBlazor library and register addons -->
+    <script src="_content/XtermBlazor/XtermBlazor.min.js"></script>
+    <script>XtermBlazor.registerAddons({ "addon-fit": new FitAddon.FitAddon() });</script>
+
+    <script>
+        let resizeCallback;
+
+        window.registerViewportChangeCallback = (dotnetHelper) => {
+            // Save the callback to remove it later
+            resizeCallback = () => {
+                dotnetHelper.invokeMethodAsync('OnResize', window.innerWidth, window.innerHeight);
+            };
+
+            // Attach event listeners
+            window.addEventListener('load', resizeCallback);
+            window.addEventListener('resize', resizeCallback);
+        };
+
+        window.unregisterViewportChangeCallback = () => {
+            if (resizeCallback) {
+                // Remove event listeners
+                window.removeEventListener('load', resizeCallback);
+                window.removeEventListener('resize', resizeCallback);
+
+                // Clear the saved reference
+                resizeCallback = null;
+            }
+        };
+    </script>
+
+
+</body>
+
+</html>

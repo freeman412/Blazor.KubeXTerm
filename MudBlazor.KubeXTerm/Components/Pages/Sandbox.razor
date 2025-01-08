@@ -1,0 +1,222 @@
+﻿@page "/sandbox"
+@using k8s;
+@using k8s.Models;
+
+<MudGrid Spacing="2">
+    <MudItem xs="4" >
+        <MudPaper Class="ma-1">
+            <MudGrid Spacing="1">
+                <MudItem xs="12">
+                    <MudButton Size="Size.Small" Class="pa-1 ml-3 mt-3" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Success" OnClick="@RefreshPodData">
+                        Refresh Pod Data
+                        <MudIcon Class=" pl-2 pa-1" Icon="@CustomIcons.KubernetesBlue"></MudIcon>
+                    </MudButton>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudDataGrid 
+                        Items="@_podList.Items" T="V1Pod" Hover="true"
+                        Filterable="true" 
+                        FilterMode="@DataGridFilterMode.Simple"
+                        ShowFilterIcons="false"
+                        Bordered="true"                        
+                        Dense="true"
+                        RowStyleFunc="@_rowStyleFunc"
+                        Class="pa-3">
+                        <Columns>
+                            <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
+                            <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
+                            <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
+                                <CellTemplate>
+                                    <MudButtonGroup Class="pa-1" Color="Color.Primary" Variant="Variant.Outlined">
+                                        <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" 
+                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
+                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                        </MudTooltip>
+                                        <MudTooltip Text=@($"Launch Logs Viewer For {context.Item.Name()}")>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"
+                                                           OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
+                                                           Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                        </MudTooltip>
+                                        <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"
+                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "STDOUT"))" 
+                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                        </MudTooltip>
+                                        <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"
+                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "STDERR"))" 
+                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                        </MudTooltip>
+                                    </MudButtonGroup>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                        <PagerContent>
+                            <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
+                        </PagerContent>
+                    </MudDataGrid>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+    </MudItem>
+    <MudItem xs="8">
+        <MudTabs @bind-ActivePanelIndex="@_index"
+        PanelClass="py-6"
+        Elevation="4" 
+        Rounded 
+        ApplyEffectsToContainer="true"
+        KeepPanelsAlive >
+            <ChildContent>
+                @foreach (var tab in _tabs)
+                {
+                    <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
+                        ShowCloseIcon="@tab.ShowCloseIcon"
+                        Icon="@Icons.Material.Filled.Terminal"
+                         @key="@tab.Id">
+                                 @tab.K8sTerminalFragment
+                    </MudTabPanel>
+                }
+            </ChildContent>
+            <TabPanelHeader>
+                <MudTooltip Text="Close tab. All data will be lost">
+
+                        <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
+
+                </MudTooltip>
+            </TabPanelHeader>
+        </MudTabs>
+    </MudItem>
+</MudGrid>
+
+@code {
+
+    private List<TabView> _tabs = new();
+    private int _index =0;
+    private int? _nextIndex = null;
+    private CancellationTokenSource _cancellationTokenSource;
+    private bool _stateHasChanged;
+
+    // style the rows where the Element.Position == 0 to have italic text.
+    private Func<V1Pod, int, string> _rowStyleFunc => (x, i) =>
+    {
+       return "font-style:italic";
+
+    };
+
+    // style the cells according to the element's physical classification and the molar mass.
+    private Func<V1Pod, string> _cellStyleFunc => x =>
+    {
+        return "padding: 2px";
+    };
+
+
+    KubernetesClientConfiguration K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+    IKubernetes K8sContext;
+
+    private V1PodList _podList = new V1PodList();
+
+    private async Task RefreshPodData()
+    {
+        _podList = await LoadGridData();
+        StateHasChanged();
+    }
+
+    //Load the data from the API Server into a Datagrid
+    private async Task<V1PodList> LoadGridData()
+    {
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource = new CancellationTokenSource();
+
+        string namespaceName = "default";
+
+        GridData<V1Pod> podGrid;
+        return  await K8sContext.CoreV1.ListNamespacedPodAsync(namespaceName);
+    }
+
+
+    public class TabView
+    {
+        public string Label { get; set; }
+        //public string Content { get; set; }
+        public RenderFragment K8sTerminalFragment { get; set; }
+        public Guid Id { get; set; }
+        public bool ShowCloseIcon { get; set; } = false;
+    }
+
+
+    protected override void OnInitialized()
+    {
+        K8sContext = new Kubernetes(K8sConfig);
+        base.OnInitialized();
+    }
+
+    protected override async Task OnInitializedAsync()
+    { 
+        _podList = await LoadGridData();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (_nextIndex.HasValue == true)
+        {
+            _index = _nextIndex.Value;
+            _nextIndex = null;
+            StateHasChanged();
+        }
+    }
+
+    private void AddTabCallback(string podName, string connectionType)
+    {
+        var newTab = new TabView
+            {
+                Id = Guid.NewGuid(),
+                Label = $"{podName}",
+                K8sTerminalFragment = builder =>
+                {
+                    builder.OpenComponent<KubernetesTerminal>(0);
+                    builder.AddAttribute(1, "PodName", podName);
+                    builder.AddComponentParameter(2, "K8sContext", K8sContext);
+                    builder.AddComponentParameter(3, "ConnectionType", connectionType);
+                    builder.CloseComponent();
+                }
+            };
+
+        _tabs.Add(newTab);
+        _index = _tabs.Count - 1; // Automatically switch to the new tab
+        StateHasChanged(); // Ensure the UI updates
+    }
+
+    public void RemoveTab(MudTabPanel tabPanel)
+    {
+        // Find the tab by its unique ID
+        var tab = _tabs.FirstOrDefault(x => Equals(x.Id, tabPanel.Tag));
+        if (tab != null)
+        {
+            // Get the index of the tab being removed
+            var index = _tabs.IndexOf(tab);
+
+            // Remove the tab
+            _tabs.Remove(tab);
+
+            // Adjust the active index
+            if (_index >= _tabs.Count)
+            {
+                // If the active index is out of bounds, select the last tab
+                _index = _tabs.Count - 1;
+            }
+            else if (_index > index)
+            {
+                // If the active tab is after the removed tab, adjust its index
+                _index--;
+            }
+        }
+
+        // Mark state as changed and trigger re-render
+        _stateHasChanged = true;
+        StateHasChanged();
+    }
+
+
+}
