@@ -1,5 +1,6 @@
 ﻿@using System.Net.WebSockets
 @using System.Text
+@using System.Text.Json
 @using XtermBlazor
 @using k8s
 
@@ -11,20 +12,16 @@
 
 <MudContainer style="max-width: 100% !important;" Class="overflow-hidden">
     <MudGrid Justify="Justify.FlexStart">
-
-
         <MudItem xs="12" Style="height: calc(100vh - 250px);">
             @* Adjust for header/footer size *@
             <Xterm OnData="@WriteToTerminal"
             Addons="Addons"
             @ref="Term"
             Options="_options"
-
             OnFirstRender="@OnFirstRender"
             Style="padding: 10px; background-color: #282a36; color: white; height: 100%; width: 100%;"
             Class="rounded-lg" 
             OnRender="FitTerminal"
-            OnKey="FitTerminal"          
             />
         </MudItem>
 
@@ -34,6 +31,7 @@
 
 @code 
 {
+
     [Parameter]
     public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] 
@@ -51,6 +49,7 @@
         public static string STDOUT = "STDOUT";
         public static string BASH = "BASH";
         public static string LOGS = "LOGS";
+        public static string SH = "SH";
     }
     private TerminalOptions _options;
 
@@ -88,30 +87,46 @@
 
     }
 
-    //Change to take a parameter at some point - ideally would be an uploaded file ?
+    //Change to take a parameter at some point - ideally would be an uploaded file? 
+    // For now default config works if running in k8s oro  using docker desktop kubernetes
     KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
 
     private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
     private bool _isConnected = false;
 
-    //THe main Xterm Object
+    //The main Xterm Object
     private Xterm Term;
     KubeExec KubeExecutor;
 
     //Stops the infinite resize loop
     private int isResizing = 0;
 
+    /// <summary>
+    /// Tracks the Viewport width for resize events
+    /// </summary>
     public int ViewportWidth { get; set; }
+    /// <summary>
+    /// Tracks the Viewport height for resize events
+    /// </summary>
     public int ViewportHeight { get; set; }
 
+    /// <summary>
+    /// Method called from the javascript watcher for user initiated resizing
+    /// </summary>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
     [JSInvokable]
-    public void OnResize(int width, int height)
+    public async Task OnResize(int width, int height)
     {
-        if (ViewportWidth == width && ViewportHeight == height) return;
+        int isResizing = 1; //TODO: Not sure if i need to do anyhting to throttle resize 
+        if (ViewportWidth == width && ViewportHeight == height) 
+            return;
         ViewportWidth = width;
         ViewportHeight = height;
-        FitTerminal();
+        await FitTerminal();
+        isResizing = 0;
         StateHasChanged();
     }
 
@@ -123,17 +138,23 @@
             dotNetObjectReference = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
         }
+
+        if (KubeExecutor != null && isResizing != 0)
+        {
+            int rows = await Term.GetRows();
+            int cols = await Term.GetColumns();
+            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+        }
     }
 
-
-    private async Task MoveSlider(int count)
-    {
-        int c = await Term.GetColumns();
-        await Term.Resize(c, count);
-    }
-
+    /// <summary>
+    /// The first render method for the XTerm Component. Sets up the connection to k8s and fits the terminal to the window.
+    /// </summary>
+    /// <returns></returns>
     private async Task OnFirstRender()
     {
+        //Initialize the kubernetes executor
+        KubeExecutor = new KubeExec(Term, K8sContext, Namespace);
         await FitTerminal();
 
         if(ConnectionType != K8sConnectionType.BASH)
@@ -142,17 +163,29 @@
             _options.ConvertEOL = true;
         }
 
-        KubeExecutor = new KubeExec(Term, K8sContext, Namespace);
+
         await StartTerminalConnection();
 
     }
 
     private async Task FitTerminal()
     {
+        //Tell the javacript XTerm to fit the container
         await Term.Addon("addon-fit").InvokeVoidAsync("fit");
+
+        //Tell websocket in kubernetes about the resize
+        if (KubeExecutor != null )
+        {
+            int rows = await Term.GetRows();
+            int cols = await Term.GetColumns();
+            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+        }
     }
 
-
+    /// <summary>
+    /// Sets up the terminal connection based on requested type
+    /// </summary>
+    /// <returns></returns>
     private async Task StartTerminalConnection()
     {
         if (ConnectionType == K8sConnectionType.BASH)
@@ -163,7 +196,6 @@
             await KubeExecutor.LogsInPodAync(PodName, ContainerName);
         else if (ConnectionType == K8sConnectionType.STDERR)
             await KubeExecutor.StdErrInPod(PodName, ContainerName);
-        //LOGS combined
     }
 
     /// <summary>
@@ -177,6 +209,9 @@
         await KubeExecutor.WriteStream(data);
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     internal class KubeExec : IAsyncDisposable
     {
         private IKubernetes K8sContext;
@@ -192,6 +227,44 @@
             webTerminal = term;
             this.K8sContext = k8sContext;
             Namespace = @namespace;
+        }
+
+
+        /// <summary>
+        /// Sends the resize command to the kubernetes websocket on channel 4
+        /// Kinda irritating this is noto a function in the .net K8s api already
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="cols"></param>
+        /// <param name="rows"></param>
+        /// <returns></returns>
+        public async Task SendResizeCommandAsync(int rows, int cols)
+        {
+            if (webSocket != null && webSocket.State == WebSocketState.Open)
+            {
+                // Kubernetes expects JSON payload for resize
+                var resizePayload = new
+                {
+                    Height = rows,
+                    Width = cols
+                };
+
+                // Convert the payload to JSON
+                var jsonPayload = JsonSerializer.Serialize(resizePayload);
+
+                // Create the message for channel 4 (resize)
+                var message = new byte[1 + Encoding.UTF8.GetByteCount(jsonPayload)];
+                message[0] = 4; // Channel 4 for resize
+                Encoding.UTF8.GetBytes(jsonPayload, 0, jsonPayload.Length, message, 1);
+
+                // Send the message as a binary frame
+                await webSocket.SendAsync(
+                    new ArraySegment<byte>(message),
+                    WebSocketMessageType.Binary,
+                    true,
+                    CancellationToken.None
+                );
+            }
         }
 
         /// <summary>
@@ -487,6 +560,4 @@
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
     }
-
-
 }

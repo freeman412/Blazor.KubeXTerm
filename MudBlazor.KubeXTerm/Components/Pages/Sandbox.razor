@@ -27,9 +27,9 @@
                             <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
                             <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
                                 <CellTemplate>
-                                    <MudButtonGroup Class="pa-1" Color="Color.Primary" Variant="Variant.Outlined">
+                                    <MudButtonGroup Class="pa-1"  Variant="Variant.Outlined">
                                         <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" 
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning" 
                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
                                                 Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
@@ -81,9 +81,7 @@
             </ChildContent>
             <TabPanelHeader>
                 <MudTooltip Text="Close tab. All data will be lost">
-
                         <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-
                 </MudTooltip>
             </TabPanelHeader>
         </MudTabs>
@@ -131,7 +129,6 @@
 
         string namespaceName = "default";
 
-        GridData<V1Pod> podGrid;
         return  await K8sContext.CoreV1.ListNamespacedPodAsync(namespaceName);
     }
 

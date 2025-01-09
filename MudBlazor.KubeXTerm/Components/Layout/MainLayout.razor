@@ -29,8 +29,8 @@
     <a class="dismiss">🗙</a>
 </div>
 
-@code {
-
+@code 
+{
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
     private MudTheme? _theme = null;
@@ -44,6 +44,9 @@
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties()
+            {
+                DefaultBorderRadius = "8px" // Applies globally to components that respect this property
+            }
         };
 
         StateHasChanged();
@@ -72,18 +75,18 @@
 
     private readonly PaletteDark _darkPalette = new()
     {
-        Primary = "#7e6fff",
-        Surface = "#1e1e2d",
-        Background = "#1a1a27",
+            Primary = "#3190c6",
+            Surface = "#141414",
+            Background = "#000000",
         BackgroundGray = "#151521",
         AppbarText = "#92929f",
-        AppbarBackground = "rgba(26,26,39,0.8)",
-        DrawerBackground = "#1a1a27",
+            AppbarBackground = "#000000",
+            DrawerBackground = "#000000",
         ActionDefault = "#74718e",
         ActionDisabled = "#9999994d",
         ActionDisabledBackground = "#605f6d4d",
-        TextPrimary = "#b2b0bf",
-        TextSecondary = "#92929f",
+            TextPrimary = "#7c7e85",
+            TextSecondary = "#92929f",
         TextDisabled = "#ffffff33",
         DrawerIcon = "#92929f",
         DrawerText = "#92929f",
