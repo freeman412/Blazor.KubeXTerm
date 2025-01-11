@@ -2,8 +2,11 @@
 
 <PageTitle>Home</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">Welcome to your new app, powered by MudBlazor and the .NET 8 Template!</MudText>
+<MudText Typo="Typo.h3" GutterBottom="true">KubeXTerm</MudText>
+
+<MudText Class="mb-8">
+    This project is a MudBlazor Component that provides Xterm access into Kubernetes workloads.
+</MudText>
 
 <MudAlert Severity="Severity.Normal">
     You can find documentation and examples on our website here:
@@ -13,46 +16,74 @@
 </MudAlert>
 
 <br />
-<MudText Typo="Typo.h5" GutterBottom="true">Interactivity in this Template</MudText>
-<br />
+
+<MudText Typo="Typo.h5" GutterBottom="true">Features</MudText>
 <MudText Typo="Typo.body2">
-    When you opt for the "Global" Interactivity Location, <br />
-    the render modes are defined in App.razor and consequently apply to all child components.<br />
-    In this case, providers are globally set in the MainLayout.<br />
-    <br />
-    On the other hand, if you choose the "Per page/component" Interactivity Location,<br />
-    it is necessary to include the <br />
-    <br />
-    &lt;MudPopoverProvider /&gt; <br />
-    &lt;MudDialogProvider /&gt; <br />
-    &lt;MudSnackbarProvider /&gt; <br />
-    <br />
-    components on every interactive page.<br />
-    <br />
-    If a render mode is not specified for a page, it defaults to Server-Side Rendering (SSR),<br />
-    similar to this page. While MudBlazor allows pages to be rendered in SSR,<br />
-    please note that interactive features, such as buttons and dropdown menus, will not be functional.
+    <ul>
+        <li><strong>Xterm Integration</strong>: Offers full terminal functionality via Xterm.js.</li>
+        <li><strong>NuGet Package</strong>: Easy integration with .NET 8 projects.</li>
+    </ul>
 </MudText>
 
 <br />
-<MudText Typo="Typo.h5" GutterBottom="true">What's New in Blazor with the Release of .NET 8</MudText>
-<br />
-<MudText Typo="Typo.h6" GutterBottom="true">Prerendering</MudText>
-<MudText Typo="Typo.body2" GutterBottom="true">
-    If you're exploring the features of .NET 8 Blazor,<br /> you might be pleasantly surprised to learn that each page is prerendered on the server,<br /> regardless of the selected render mode.<br /><br />
-    This means that you'll need to inject all necessary services on the server,<br /> even when opting for the wasm (WebAssembly) render mode.<br /><br />
-    This prerendering functionality is crucial to ensuring that WebAssembly mode feels fast and responsive,<br /> especially when it comes to initial page load times.<br /><br />
-    For more information on how to detect prerendering and leverage the RenderContext, you can refer to the following link:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issuecomment-1783568121" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
-    </MudLink>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Acknowledgements</MudText>
+<MudText Typo="Typo.body2">
+    <ul>
+        <li><a href="https://mudblazor.com/">MudBlazor</a> – For providing an elegant Blazor UI framework.</li>
+        <li><a href="https://xtermjs.org/">Xterm.js</a> – For the powerful terminal emulation library.</li>
+        <li><a href="https://kubernetes.io/">Kubernetes</a> – For enabling seamless container orchestration.</li>
+        <li><a href="https://opensource.org/">Open Source Community</a> – For fostering innovation and collaboration.</li>
+    </ul>
 </MudText>
 
 <br />
-<MudText Typo="Typo.h6" GutterBottom="true">InteractiveAuto</MudText>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Getting Started</MudText>
 <MudText Typo="Typo.body2">
-    A discussion on how to achieve this can be found here:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issue-1950424116" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
-    </MudLink>
+    <h6>Prerequisites</h6>
+    <ul>
+        <li><a href="https://dotnet.microsoft.com/download/dotnet/8.0">.NET 8 SDK</a></li>
+        <li>Docker</li>
+        <li>Kubernetes cluster with required permissions</li>
+    </ul>
+</MudText>
+
+<MudText Typo="Typo.body2">
+    <h6>Installation</h6>
+    <pre><code>
+# Clone the repository
+git clone https://github.com/username/repo-name.git
+cd repo-name
+
+# Install dependencies
+dotnet restore
+
+# Run the application
+dotnet run
+    </code></pre>
+</MudText>
+
+<br />
+
+<MudText Typo="Typo.h5" GutterBottom="true">Contributing</MudText>
+<MudText Typo="Typo.body2">
+    We welcome contributions to KubeXTerm! Whether you're fixing bugs, adding new features, or improving documentation, your help is greatly appreciated.
+</MudText>
+
+<MudText Typo="Typo.body2">
+    <h6>How to Contribute</h6>
+    <ol>
+        <li>
+            <strong>Fork the Repository</strong>
+            Click the "Fork" button on the top right of this repository to create your own copy.
+        </li>
+        <li>
+            <strong>Clone Your Fork</strong>
+            <pre><code>
+git clone https://github.com/your-username/k8s-sandbox-terminal.git
+cd k8s-sandbox-terminal
+            </code></pre>
+        </li>
+    </ol>
 </MudText>

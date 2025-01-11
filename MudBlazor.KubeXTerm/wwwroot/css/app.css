@@ -18,3 +18,39 @@
 .border-radius-top {
     border-radius: 10px 10px 0 0;
 }
+
+.cursor-container {
+    position: relative;
+    width: 100%;
+    height: 40px; /* Adjust height as needed */
+    background-color: #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    top: 32%; /* Adjust this value to position the cursor lower */
+    transform: translateY(-50%);
+}
+
+.text-output {
+    position: relative;
+    font-family: IBM Plex Mono, monospace; 
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.cursor {
+    display: inline-block;
+    width: 2px;
+    height: 18px; /* Shorter cursor height */
+    background-color: var(--mud-palette-primary);
+    animation: blink 1s step-start infinite;
+    transform: translateY(20%);
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+

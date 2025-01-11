@@ -1,0 +1,68 @@
+﻿@namespace MudBlazor.KubeXTerm.Components
+
+<div class="cursor-container">
+    <div class="text-output">@DisplayedText<span class="cursor" style="left: @CursorPosition%;"></span></div>
+</div>
+
+@code {
+    private double CursorPosition = 0;
+    private string FullText = "  Hello World!";
+    private string DisplayedText = "";
+    private int CurrentCharIndex = 0;
+
+    private const double MovementStep = 5; // Speed of cursor movement
+    private const int TypingInterval = 300; // Time (ms) between each character being typed
+    private const int PauseDuration = 3000; // Time (ms) to pause before restarting
+
+    private bool IsPaused = false;
+    private bool IsTyping = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Start the typing process asynchronously
+        await TypeTextAsync();
+    }
+
+    private async Task TypeTextAsync()
+    {
+        while (IsTyping)
+        {
+            if (IsPaused)
+            {
+                // If paused, delay for the pause duration
+                await Task.Delay(PauseDuration);
+                IsPaused = false;
+            }
+
+            if (CurrentCharIndex < FullText.Length)
+            {
+                // Add the next character to the displayed text
+                DisplayedText += FullText[CurrentCharIndex];
+                CurrentCharIndex++;
+
+                // Update cursor position relative to the text length
+                CursorPosition = CurrentCharIndex * 10; // Adjust multiplier for spacing
+            }
+            else
+            {
+                // // Pause for 3 seconds before restarting
+                // IsPaused = true;
+
+                // // Delay for typing interval
+                // await Task.Delay(PauseDuration);
+
+                // // Reset and start typing again after pause
+                // DisplayedText = "";
+                // CurrentCharIndex = 0;
+                // CursorPosition = 0;
+                StateHasChanged();
+                break;
+            }
+
+            StateHasChanged(); // Re-render the component
+
+            // Wait for the typing interval before the next character
+            await Task.Delay(TypingInterval);
+        }
+    }
+}
