@@ -1,4 +1,4 @@
-# Project Name
+# KubeXTerm
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/freeman412/MudBlazor.KubeXTerm/ci.yml)
