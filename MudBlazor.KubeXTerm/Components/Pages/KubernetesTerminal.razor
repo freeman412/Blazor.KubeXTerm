@@ -7,25 +7,21 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
-@* @inject NavigationManager Navigation *@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<MudContainer style="max-width: 100% !important;" Class="overflow-hidden">
-    <MudGrid Justify="Justify.FlexStart">
+<MudContainer style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" Class="overflow-hidden">
         <MudItem xs="12" Style="height: calc(100vh - 250px);">
             @* Adjust for header/footer size *@
             <Xterm OnData="@WriteToTerminal"
-            Addons="Addons"
-            @ref="Term"
-            Options="_options"
-            OnFirstRender="@OnFirstRender"
-            Style="padding: 10px; background-color: #282a36; color: white; height: 100%; width: 100%;"
-            Class="rounded-lg" 
-            OnRender="FitTerminal"
+                Addons="Addons"
+                @ref="Term"
+                Options="_options"
+                OnFirstRender="@OnFirstRender"
+                Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
+                Class="rounded-lg" 
+                OnRender="FitTerminal"
             />
         </MudItem>
-
-    </MudGrid>
 </MudContainer>
 
 
@@ -58,9 +54,6 @@
     /// </summary>
     protected override void OnParametersSet()
     {
-        //assume we'll connect to main pod container with the same name
-        if (ContainerName == null)
-            ContainerName = PodName;
         bool _convertEOL = false;
         bool _disableStdin = false;
         // Update _options based on ConnectionType

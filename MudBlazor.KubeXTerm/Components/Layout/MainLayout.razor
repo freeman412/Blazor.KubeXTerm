@@ -39,13 +39,30 @@
     {
         base.OnInitialized();
 
-        _theme = new()
+        _theme = new()  
         {
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties()
             {
-                DefaultBorderRadius = "8px" // Applies globally to components that respect this property
+                DefaultBorderRadius = "10px" // Applies globally to components that respect this property
+            },
+            Typography = new Typography()
+            {
+                Default = new Default
+                {
+                    FontFamily = [ "IBM Plex Mono", "monospace"]
+                },
+                H1 = new H1
+                {
+                    FontFamily =  [ "IBM Plex Mono", "monospace"],
+                    FontSize = "2rem",
+                    FontWeight = 500
+                },
+                Body1 = new Body1
+                {
+                    FontFamily =  [ "IBM Plex Mono", "monospace"]
+                }
             }
         };
 

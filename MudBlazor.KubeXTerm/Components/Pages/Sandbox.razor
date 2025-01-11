@@ -4,7 +4,7 @@
 
 <MudGrid Spacing="2">
     <MudItem xs="4" >
-        <MudPaper Class="ma-1">
+        <MudPaper Class="ma-1" Style="height: 100%">
             <MudGrid Spacing="1">
                 <MudItem xs="12">
                     <MudButton Size="Size.Small" Class="pa-1 ml-3 mt-3" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Success" OnClick="@RefreshPodData">
@@ -14,14 +14,14 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudDataGrid 
-                        Items="@_podList.Items" T="V1Pod" Hover="true"
-                        Filterable="true" 
-                        FilterMode="@DataGridFilterMode.Simple"
-                        ShowFilterIcons="false"
-                        Bordered="true"                        
-                        Dense="true"
-                        RowStyleFunc="@_rowStyleFunc"
-                        Class="pa-3">
+                    Items="@_podList.Items" T="V1Pod" Hover="true"
+                    Filterable="true" 
+                    FilterMode="@DataGridFilterMode.Simple"
+                    ShowFilterIcons="false"
+                    Bordered="true"                        
+                    Dense="true"
+                    RowStyleFunc="@_rowStyleFunc"
+                    Class="pa-3">
                         <Columns>
                             <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
                             <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
@@ -30,23 +30,23 @@
                                     <MudButtonGroup Class="pa-1"  Variant="Variant.Outlined">
                                         <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
                                             <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning" 
-                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
-                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
+                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
                                         <MudTooltip Text=@($"Launch Logs Viewer For {context.Item.Name()}")>
                                             <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"
-                                                           OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
-                                                           Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
+                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
                                         <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
                                             <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"
-                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "STDOUT"))" 
-                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDOUT"))" 
+                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
                                         <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
                                             <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"
-                                                OnClick="@(() => AddTabCallback(context.Item.Name(), "STDERR"))" 
-                                                Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDERR"))" 
+                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
                                     </MudButtonGroup>
                                 </CellTemplate>
@@ -63,19 +63,21 @@
     </MudItem>
     <MudItem xs="8">
         <MudTabs @bind-ActivePanelIndex="@_index"
-        PanelClass="py-6"
-        Elevation="4" 
-        Rounded 
-        ApplyEffectsToContainer="true"
+        PanelClass="border-radius-bottom"
+        TabHeaderClass="border-radius-top"
+        Elevation="4"
+
         KeepPanelsAlive >
             <ChildContent>
+
                 @foreach (var tab in _tabs)
                 {
-                    <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
+                    <MudTabPanel 
+                        Text="@tab.Label" Tag="@tab.Id"
                         ShowCloseIcon="@tab.ShowCloseIcon"
                         Icon="@Icons.Material.Filled.Terminal"
-                         @key="@tab.Id">
-                                 @tab.K8sTerminalFragment
+                        @key="@tab.Id">
+                        @tab.K8sTerminalFragment
                     </MudTabPanel>
                 }
             </ChildContent>
@@ -91,7 +93,7 @@
 @code {
 
     private List<TabView> _tabs = new();
-    private int _index =0;
+    private int _index = 0;
     private int? _nextIndex = null;
     private CancellationTokenSource _cancellationTokenSource;
     private bool _stateHasChanged;
