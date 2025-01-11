@@ -15,13 +15,15 @@
                 </MudItem>
                 <MudItem xs="12">
                     <MudDataGrid 
-                    Items="@_podList.Items" T="V1Pod" Hover="true"
+                    Items="@_podList" T="V1Pod" Hover="true"
                     Filterable="true" 
                     FilterMode="@DataGridFilterMode.Simple"
                     ShowFilterIcons="false"
                     Bordered="true"                        
                     Dense="true"
                     RowStyleFunc="@_rowStyleFunc"
+                    Loading="@_podsLoading"
+                    LoadingProgressColor="Color.Primary"
                     Class="pa-3">
                         <Columns>
                             <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
@@ -98,10 +100,18 @@
 
 @code {
 
+
+
+
+
+
+
     private List<TabView> _tabs = new();
     private int _index = 0;
     private CancellationTokenSource _cancellationTokenSource;
     private bool _stateHasChanged;
+
+    private bool _podsLoading = true;
 
     // style the rows where the Element.Position == 0 to have italic text.
     private Func<V1Pod, int, string> _rowStyleFunc => (x, i) =>
@@ -120,27 +130,138 @@
     KubernetesClientConfiguration K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
     IKubernetes K8sContext;
 
-    private V1PodList _podList = new V1PodList();
+    //private V1PodList _podList = new V1PodList();
+    private IList<V1Pod> _podList = new List<V1Pod>();
 
     private async Task RefreshPodData()
     {
-        _podList = await LoadGridData();
+        //_podList = await LoadGridData();
         StateHasChanged();
     }
 
     //Load the data from the API Server into a Datagrid
-    private async Task<V1PodList> LoadGridData()
+    // private async Task<V1PodList> LoadGridData()
+    // {
+    //     _podsLoading = true;
+    //     _cancellationTokenSource?.Cancel();
+    //     _cancellationTokenSource = new CancellationTokenSource();
+
+    //     string namespaceName = "default";
+    //     var pList = await K8sContext.CoreV1.ListNamespacedPodAsync(namespaceName, timeoutSeconds: 5);
+
+    //     _podsLoading = false;
+
+    //     return pList;
+    // }
+
+    private readonly object _lock = new();
+
+    // Load the initial list of pods and start watching for changes
+    private async Task LoadPodsAndWatchAsync()
     {
+        string namespaceName = "default";
+
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource = new CancellationTokenSource();
 
-        string namespaceName = "default";
+        try
+        {
+            // Step 1: Get the initial list of pods
+            var initialPodList = await K8sContext.CoreV1.ListNamespacedPodAsync(
+                namespaceName,
+                cancellationToken: _cancellationTokenSource.Token
+            );
 
-        return  await K8sContext.CoreV1.ListNamespacedPodAsync(namespaceName);
+            lock (_lock)
+            {
+                _podList = initialPodList.Items;
+
+                _podsLoading = false;
+            }
+
+            // Notify the UI to re-render
+            StateHasChanged();
+
+            // Step 2: Watch for changes to the pods
+            using var watch = await K8sContext.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
+                namespaceName,
+                watch: true,
+                cancellationToken: _cancellationTokenSource.Token
+            );
+
+            watch.Watch(
+                onEvent: (Action<WatchEventType, V1Pod>)((eventType, pod) =>
+                {
+                    lock (_lock)
+                    {
+                        switch (eventType)
+                        {
+                            case WatchEventType.Added:
+                                // Add new pod
+                                if (!Enumerable.Any<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name)))
+                                {
+                                    this._podList.Add(pod);
+                                }
+                                break;
+
+                            case WatchEventType.Modified:
+                                // Update existing pod
+                                var existingPod = Enumerable.FirstOrDefault<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name));
+                                if (existingPod != null)
+                                {
+                                    this._podList.Remove(existingPod);
+                                    this._podList.Add(pod);
+                                }
+                                break;
+
+                            case WatchEventType.Deleted:
+                                if (pod.Metadata?.Name != null)
+                                {
+                                    var podToRemove = _podList.FirstOrDefault(p => p.Metadata?.Name == pod.Metadata?.Name);
+                                    if (podToRemove != null)
+                                    {
+                                        _podList.Remove(podToRemove);
+                                    }
+                                }
+                                break;
+
+                            case WatchEventType.Error:
+                                Console.WriteLine($"Error with pod: {pod?.Metadata?.Name}");
+                                break;
+
+                            default:
+                                Console.WriteLine($"Unknown event type: {eventType}");
+                                break;
+                        }
+                    }
+
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
+                }),
+                onError: (exception) =>
+                {
+                    Console.WriteLine($"Watch error: {exception.Message}");
+                },
+                onClosed: () =>
+                {
+                    Console.WriteLine("Watch closed.");
+                }
+            );
+
+            // Keep the watch running
+            await Task.Delay(Timeout.Infinite, _cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Operation was canceled.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
     }
 
-
-    public class TabView
+    private class TabView
     {
         public string Label { get; set; }
         //public string Content { get; set; }
@@ -157,8 +278,11 @@
     }
 
     protected override async Task OnInitializedAsync()
-    { 
-        _podList = await LoadGridData();
+    {
+
+        //_podList = await LoadGridData();
+
+        await LoadPodsAndWatchAsync();
     }
 
     protected override void OnAfterRender(bool firstRender)
