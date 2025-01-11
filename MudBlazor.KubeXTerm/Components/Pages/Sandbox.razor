@@ -94,12 +94,6 @@
 
 @code {
 
-
-
-
-
-
-
     private List<TabView> _tabs = new();
     private int _index = 0;
     private CancellationTokenSource _cancellationTokenSource;
@@ -132,21 +126,6 @@
         //_podList = await LoadGridData();
         StateHasChanged();
     }
-
-    //Load the data from the API Server into a Datagrid
-    // private async Task<V1PodList> LoadGridData()
-    // {
-    //     _podsLoading = true;
-    //     _cancellationTokenSource?.Cancel();
-    //     _cancellationTokenSource = new CancellationTokenSource();
-
-    //     string namespaceName = "default";
-    //     var pList = await K8sContext.CoreV1.ListNamespacedPodAsync(namespaceName, timeoutSeconds: 5);
-
-    //     _podsLoading = false;
-
-    //     return pList;
-    // }
 
     private readonly object _lock = new();
 
