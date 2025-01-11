@@ -28,7 +28,6 @@
 
 @code 
 {
-
     [Parameter]
     public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] 
@@ -112,7 +111,6 @@
     }
 
     
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)

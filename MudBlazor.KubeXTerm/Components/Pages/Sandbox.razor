@@ -79,17 +79,17 @@
                 @foreach (var tab in _tabs)
                 {
                     <MudTabPanel 
-                        Text="@tab.Label" Tag="@tab.Id"
-                        ShowCloseIcon="@tab.ShowCloseIcon"
-                        Icon="@Icons.Material.Filled.Terminal"
-                        @key="@tab.Id">
+                    Text="@tab.Label" Tag="@tab.Id"
+                    ShowCloseIcon="@tab.ShowCloseIcon"
+                    Icon="@Icons.Material.Filled.Terminal"
+                    @key="@tab.Id">
                         @tab.K8sTerminalFragment
                     </MudTabPanel>
                 }
             </ChildContent>
             <TabPanelHeader>
                 <MudTooltip Text="Close tab. All data will be lost">
-                        <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
+                    <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
                 </MudTooltip>
             </TabPanelHeader>
         </MudTabs>
@@ -100,14 +100,13 @@
 
     private List<TabView> _tabs = new();
     private int _index = 0;
-    private int? _nextIndex = null;
     private CancellationTokenSource _cancellationTokenSource;
     private bool _stateHasChanged;
 
     // style the rows where the Element.Position == 0 to have italic text.
     private Func<V1Pod, int, string> _rowStyleFunc => (x, i) =>
     {
-       return "font-style:italic";
+        return "font-style:italic";
 
     };
 
@@ -164,10 +163,21 @@
 
     protected override void OnAfterRender(bool firstRender)
     {
-        if (_nextIndex.HasValue == true)
+        if(firstRender)
         {
-            _index = _nextIndex.Value;
-            _nextIndex = null;
+            var welcomeTab = new TabView
+            {
+                Id = Guid.NewGuid(),
+                Label = $"Welcome",
+                K8sTerminalFragment = builder =>
+                {
+                    builder.OpenComponent<WelcomeTerminal>(0);
+                    builder.CloseComponent();
+                }
+
+            };
+            _tabs.Add(welcomeTab);
+            _index = _tabs.Count - 1;
             StateHasChanged();
         }
     }
@@ -193,6 +203,10 @@
         StateHasChanged(); // Ensure the UI updates
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="tabPanel"></param>
     public void RemoveTab(MudTabPanel tabPanel)
     {
         // Find the tab by its unique ID
@@ -215,6 +229,11 @@
             {
                 // If the active tab is after the removed tab, adjust its index
                 _index--;
+            }
+            else if(_index == index)
+            {
+                //if the active tab is being removed
+                _index = 0;
             }
         }
 

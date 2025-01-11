@@ -1,0 +1,180 @@
+﻿@using XtermBlazor
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+<MudContainer style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" Class="overflow-hidden">
+    <MudItem xs="12" Style="height: calc(100vh - 250px);">
+        @* Adjust for header/footer size *@
+        <Xterm
+        Addons="Addons"
+        @ref="Term"
+        Options="_options"
+        OnFirstRender="@OnFirstRender"
+        Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
+        Class="rounded-lg" 
+        OnRender="FitTerminal"
+        OnKey="OnTerminalKey" />
+    </MudItem>
+</MudContainer>
+
+@code{
+
+    //The main Xterm Object
+    private Xterm Term;
+    private TerminalOptions _options = new TerminalOptions
+        {
+            CursorBlink = true,
+            CursorStyle = CursorStyle.Bar,
+            FontFamily = "IBM Plex Mono",
+            DisableStdin = false,
+
+            Theme =
+            {
+                Background = "#282a36",
+                Foreground = "#bacfc7"
+            },
+        };
+    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
+    private DotNetObjectReference<WelcomeTerminal> dotNetObjectReference;
+    private bool isWelcoming = true;
+
+    /// <summary>
+    /// Tracks the Viewport width for resize events
+    /// </summary>
+    public int ViewportWidth { get; set; }
+    /// <summary>
+    /// Tracks the Viewport height for resize events
+    /// </summary>
+    public int ViewportHeight { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetObjectReference = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
+        }
+
+    }
+
+    /// <summary>
+    /// Method called from the javascript watcher for user initiated resizing
+    /// </summary>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
+    [JSInvokable]
+    public async Task OnResize(int width, int height)
+    {
+        if (ViewportWidth == width && ViewportHeight == height)
+            return;
+        ViewportWidth = width;
+        ViewportHeight = height;
+        await FitTerminal();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The first render method for the XTerm Component. Sets up the connection to k8s and fits the terminal to the window.
+    /// </summary>
+    /// <returns></returns>
+    private async Task OnFirstRender()
+    {
+        await FitTerminal();
+        await Term.Write("root@welcomeTerminal: ");
+        await Task.Delay(1200);
+        await SimulateTyping("./initialize.sh");
+        await Term.Write("\n");
+
+        // Simulated typing speed
+        async Task SimulateTyping(string message, int delay = 50)
+        {
+            foreach (var character in message)
+            {
+                Term.Write(character.ToString());
+                await Task.Delay(delay);
+            }
+            Term.WriteLine(""); // Newline at the end of the message
+        }
+
+        // Fake welcome script
+        async Task ExecuteWelcomeScript()
+        {
+            // await SimulateTyping("help")
+            await Task.Delay(500);
+            await SimulateTyping("Welcome to the KubeXTerm Terminal!");
+            await Task.Delay(500); // Pause
+            await SimulateTyping("Initializing environment...");
+            await Task.Delay(1000); // Simulate delay for environment setup
+            await SimulateTyping("Environment initialized successfully.");
+            await Task.Delay(500);
+            await SimulateTyping("Running startup checks...");
+            await Task.Delay(1000);
+            await Term.WriteLine("All systems operational.");
+            await Task.Delay(500);
+            await SimulateTyping($@"You're all set! Open a new tab from the pod table to get started. Type ""help"" for additional help.");
+            await Term.WriteLine("");
+            await Term.Write("root@welcomeTerminal: ");
+        }
+
+        await ExecuteWelcomeScript();
+        isWelcoming = false;
+    }
+    private async Task HelpCommand()
+    {
+        await Term.Write("\nHelp is displayed here\n");
+    }
+
+    private string commandBuffer = "";
+    private async Task OnTerminalKey(KeyEventArgs e)
+    {
+        if (isWelcoming)
+            return;
+        commandBuffer += e.Key;
+        await Term.Write(e.Key);
+        if(e.Key == "\r")
+        {
+            if (commandBuffer == "help\r")
+            {
+                await HelpCommand();
+            }
+            else if (commandBuffer == "\r")
+            {
+                
+            }
+            else{
+                await Term.WriteLine("\nBad Command! Type \"help\" for additional help");
+            }
+            commandBuffer = "";
+            await Term.WriteLine("");
+            await Term.Write("root@welcomeTerminal: ");
+        }
+    }
+
+    private async Task FitTerminal()
+    {
+        //Tell the javacript XTerm to fit the container
+        await Term.Addon("addon-fit").InvokeVoidAsync("fit");    
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            // Dispose of JSInterop callbacks
+            if (dotNetObjectReference != null)
+            {
+                dotNetObjectReference.Dispose();
+                await JSRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            // Handle any exceptions that might occur during stream write operations
+            Console.WriteLine($"Error while Disposing of Terminal: {ex.Message}");
+        }
+
+    }
+}
