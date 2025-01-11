@@ -64,7 +64,7 @@
 
     </MudItem>
     <MudItem xs="8">
-        <MudTabs @bind-ActivePanelIndex="@_index"
+        <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
         PanelClass="border-radius-bottom"
         TabHeaderClass="border-radius-top"
         Elevation="4"
@@ -94,10 +94,11 @@
 
 @code {
 
+
+
     private List<TabView> _tabs = new();
-    private int _index = 0;
+    private int _activeTabIndex = 0;
     private CancellationTokenSource _cancellationTokenSource;
-    private bool _stateHasChanged;
 
     private bool _podsLoading = true;
 
@@ -274,7 +275,7 @@
 
             };
             _tabs.Add(welcomeTab);
-            _index = _tabs.Count - 1;
+            _activeTabIndex = _tabs.Count - 1;
             StateHasChanged();
         }
     }
@@ -296,7 +297,7 @@
             };
 
         _tabs.Add(newTab);
-        _index = _tabs.Count - 1; // Automatically switch to the new tab
+        _activeTabIndex = _tabs.Count - 1; // Automatically switch to the new tab
         StateHasChanged(); // Ensure the UI updates
     }
 
@@ -311,31 +312,31 @@
         if (tab != null)
         {
             // Get the index of the tab being removed
-            var index = _tabs.IndexOf(tab);
+            var indexToBeRemoved = _tabs.IndexOf(tab);
 
             // Remove the tab
             _tabs.Remove(tab);
 
             // Adjust the active index
-            if (_index >= _tabs.Count)
+            if (_activeTabIndex >= _tabs.Count)
             {
                 // If the active index is out of bounds, select the last tab
-                _index = _tabs.Count - 1;
+                _activeTabIndex = _tabs.Count - 1;
             }
-            else if (_index > index)
+            else if (_activeTabIndex > indexToBeRemoved)
             {
                 // If the active tab is after the removed tab, adjust its index
-                _index--;
+                _activeTabIndex--;
             }
-            else if(_index == index)
+            else if(_activeTabIndex == indexToBeRemoved)
             {
                 //if the active tab is being removed
-                _index = 0;
+                _activeTabIndex = 1;
+
+                _activeTabIndex = 0; ;
             }
         }
 
-        // Mark state as changed and trigger re-render
-        _stateHasChanged = true;
         StateHasChanged();
     }
 

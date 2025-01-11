@@ -113,17 +113,23 @@
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            dotNetObjectReference = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
-        }
+        try{
+            if (firstRender)
+            {
+                dotNetObjectReference = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
+            }
 
-        if (KubeExecutor != null)
+            if (KubeExecutor != null)
+            {
+                int rows = await Term.GetRows();
+                int cols = await Term.GetColumns();
+                await KubeExecutor.SendResizeCommandAsync(rows, cols);
+            }
+        }catch(Exception e)
         {
-            int rows = await Term.GetRows();
-            int cols = await Term.GetColumns();
-            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+            //Not a big deal, the component is gone
+            Console.WriteLine($"Error in OnAfterRenderAsync: {e.Message}");
         }
     }
 

@@ -80,46 +80,54 @@
     /// <returns></returns>
     private async Task OnFirstRender()
     {
-        await FitTerminal();
-        await Term.Write("root@welcomeTerminal: ");
-        await Task.Delay(1200);
-        await SimulateTyping("./initialize.sh");
-        await Term.Write("\n");
-
-        // Simulated typing speed
-        async Task SimulateTyping(string message, int delay = 50)
-        {
-            foreach (var character in message)
-            {
-                Term.Write(character.ToString());
-                await Task.Delay(delay);
-            }
-            Term.WriteLine(""); // Newline at the end of the message
-        }
-
-        // Fake welcome script
-        async Task ExecuteWelcomeScript()
-        {
-            // await SimulateTyping("help")
-            await Task.Delay(500);
-            await SimulateTyping("Welcome to the KubeXTerm Terminal!");
-            await Task.Delay(500); // Pause
-            await SimulateTyping("Initializing environment...");
-            await Task.Delay(1000); // Simulate delay for environment setup
-            await SimulateTyping("Environment initialized successfully.");
-            await Task.Delay(500);
-            await SimulateTyping("Running startup checks...");
-            await Task.Delay(1000);
-            await Term.WriteLine("All systems operational.");
-            await Task.Delay(500);
-            await SimulateTyping($@"You're all set! Open a new tab from the pod table to get started. Type ""help"" for additional help.");
-            await Term.WriteLine("");
+        try{
+            await FitTerminal();
             await Term.Write("root@welcomeTerminal: ");
-        }
+            await Task.Delay(1200);
+            await SimulateTyping("./initialize.sh");
+            await Term.Write("\n");
 
-        await ExecuteWelcomeScript();
-        isWelcoming = false;
+            // Simulated typing speed
+            async Task SimulateTyping(string message, int delay = 50)
+            {
+                foreach (var character in message)
+                {
+                    Term.Write(character.ToString());
+                    await Task.Delay(delay);
+                }
+                Term.WriteLine(""); // Newline at the end of the message
+            }
+
+            // Fake welcome script
+            async Task ExecuteWelcomeScript()
+            {
+                // await SimulateTyping("help")
+                await Task.Delay(500);
+                await SimulateTyping("Welcome to the KubeXTerm Terminal!");
+                await Task.Delay(500); // Pause
+                await SimulateTyping("Initializing environment...");
+                await Task.Delay(1000); // Simulate delay for environment setup
+                await SimulateTyping("Environment initialized successfully.");
+                await Task.Delay(500);
+                await SimulateTyping("Running startup checks...");
+                await Task.Delay(1000);
+                await Term.WriteLine("All systems operational.");
+                await Task.Delay(500);
+                await SimulateTyping($@"You're all set! Open a new tab from the pod table to get started. Type ""help"" for additional help.");
+                await Term.WriteLine("");
+                await Term.Write("root@welcomeTerminal: ");
+            }
+
+            await ExecuteWelcomeScript();
+            isWelcoming = false;
+        }
+        catch (Exception e)
+        {
+            //Not a big deal, the component is probably closed by a user gone
+            Console.WriteLine($"Error in OnFirstRender: {e.Message}");
+        }
     }
+
     private async Task HelpCommand()
     {
         await Term.Write("\nHelp is displayed here\n");
