@@ -1,6 +1,7 @@
 ﻿@page "/sandbox"
 @using k8s;
 @using k8s.Models;
+@using KubeXTerm.Utils
 
 <MudGrid Spacing="2">
     <MudItem xs="4" >
@@ -33,7 +34,12 @@
                                             OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
                                             Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
                                         </MudTooltip>
-                                        <MudTooltip Text=@($"Launch Logs Viewer For {context.Item.Name()}")>
+                                        <MudTooltip Text=@($"Launch All Logs Viewer For {context.Item.Name()}")>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Dark"
+                                            OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))"
+                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
+                                        </MudTooltip>
+                                        <MudTooltip Text=@($"Launch Current Logs Viewer For {context.Item.Name()}")>
                                             <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"
                                             OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
                                             Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
