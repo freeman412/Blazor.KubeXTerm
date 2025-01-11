@@ -8,12 +8,6 @@
         <MudPaper Class="ma-1" Style="height: 100%">
             <MudGrid Spacing="1">
                 <MudItem xs="12">
-                    <MudButton Size="Size.Small" Class="pa-1 ml-3 mt-3" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Success" OnClick="@RefreshPodData">
-                        Refresh Pod Data
-                        <MudIcon Class=" pl-2 pa-1" Icon="@CustomIcons.KubernetesBlue"></MudIcon>
-                    </MudButton>
-                </MudItem>
-                <MudItem xs="12">
                     <MudDataGrid 
                     Items="@_podList" T="V1Pod" Hover="true"
                     Filterable="true" 
