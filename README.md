@@ -57,6 +57,6 @@ We welcome contributions to KubeXTerm! Whether you're fixing bugs, adding new fe
 
 2. **Clone Your Fork**  
    ```bash
-   git clone https://github.com/your-username/k8s-sandbox-terminal.git
-   cd k8s-sandbox-terminal
+   git clone https://github.com/your-username/mudblazer.kubexterm.git
+   cd mudblazer.kubexterm
 
