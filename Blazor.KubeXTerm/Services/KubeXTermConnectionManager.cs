@@ -5,7 +5,7 @@ using System.Text;
 using XtermBlazor;
 using System.Runtime.ConstrainedExecution;
 
-namespace MudBlazor.KubeXTerm.Services
+namespace Blazor.KubeXTerm.Services
 {
     internal class KubeXTermConnectionManager : IAsyncDisposable
     {

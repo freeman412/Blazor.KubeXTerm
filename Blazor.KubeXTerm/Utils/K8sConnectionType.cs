@@ -1,4 +1,4 @@
-﻿namespace MudBlazor.KubeXTerm.Utils
+﻿namespace Blazor.KubeXTerm.Utils
 {
     public class K8sConnectionType
     {
