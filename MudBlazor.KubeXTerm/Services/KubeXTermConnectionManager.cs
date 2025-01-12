@@ -359,10 +359,11 @@ namespace MudBlazor.KubeXTerm.Services
             {
                 try
                 {
+                    //Apparently this is not how kubectly even does this. Zombies are just ok?
                     // Send Ctrl+C (SIGINT) to interrupt the process in the terminal
-                    await WriteByte(0x03); // Ctrl+C (SIGINT)
+                    //await WriteByte(0x03); // Ctrl+C (SIGINT)
                     // Send Ctrl+D (EOF) to simulate EOF or exit signal
-                    await WriteByte(0x04); // Ctrl+D (EOF)
+                    //await WriteByte(0x04); // Ctrl+D (EOF)
                     disposedValue = true;
                 }
                 catch (Exception ex)
