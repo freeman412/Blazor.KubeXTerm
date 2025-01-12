@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text;
 using XtermBlazor;
+using System.Runtime.ConstrainedExecution;
 
 namespace MudBlazor.KubeXTerm.Services
 {
@@ -35,30 +36,37 @@ namespace MudBlazor.KubeXTerm.Services
         /// <returns></returns>
         public async Task SendResizeCommandAsync(int rows, int cols)
         {
-            if (webSocket != null && webSocket.State == WebSocketState.Open)
+            try
             {
-                // Kubernetes expects JSON payload for resize
-                var resizePayload = new
+                if (webSocket != null && webSocket.State == WebSocketState.Open)
                 {
-                    Height = rows,
-                    Width = cols
-                };
+                    // Kubernetes expects JSON payload for resize
+                    var resizePayload = new
+                    {
+                        Height = rows,
+                        Width = cols
+                    };
 
-                // Convert the payload to JSON
-                var jsonPayload = JsonSerializer.Serialize(resizePayload);
+                    // Convert the payload to JSON
+                    var jsonPayload = JsonSerializer.Serialize(resizePayload);
 
-                // Create the message for channel 4 (resize)
-                var message = new byte[1 + Encoding.UTF8.GetByteCount(jsonPayload)];
-                message[0] = 4; // Channel 4 for resize
-                Encoding.UTF8.GetBytes(jsonPayload, 0, jsonPayload.Length, message, 1);
+                    // Create the message for channel 4 (resize)
+                    var message = new byte[1 + Encoding.UTF8.GetByteCount(jsonPayload)];
+                    message[0] = 4; // Channel 4 for resize
+                    Encoding.UTF8.GetBytes(jsonPayload, 0, jsonPayload.Length, message, 1);
 
-                // Send the message as a binary frame
-                await webSocket.SendAsync(
-                    new ArraySegment<byte>(message),
-                    WebSocketMessageType.Binary,
-                    true,
-                    CancellationToken.None
-                );
+                    // Send the message as a binary frame
+                    await webSocket.SendAsync(
+                        new ArraySegment<byte>(message),
+                        WebSocketMessageType.Binary,
+                        true,
+                        CancellationToken.None
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending resize command: {ex.Message}");
             }
         }
 
@@ -340,25 +348,33 @@ namespace MudBlazor.KubeXTerm.Services
             webSocket?.Dispose();
         }
 
+        /// <summary>
+        /// Dispose of all the streams etc. //TODO: figure out known issue with the zombie bash 
+        /// processes left behind when closing the web terminals. 
+        /// </summary>
+        /// <returns></returns>
         public async ValueTask DisposeAsync()
         {
-            try
+            if (!disposedValue)
             {
-                if (!disposedValue)
+                try
                 {
                     // Send Ctrl+C (SIGINT) to interrupt the process in the terminal
                     await WriteByte(0x03); // Ctrl+C (SIGINT)
                     // Send Ctrl+D (EOF) to simulate EOF or exit signal
                     await WriteByte(0x04); // Ctrl+D (EOF)
                     disposedValue = true;
-
+                }
+                catch (Exception ex)
+                {
+                    // Handle any exceptions that might occur during stream write operations
+                    Console.WriteLine($"Error while sending Ctrl signals: {ex.Message}");
+                }
+                finally
+                {
+                    disposedValue = true;
                     await CloseStreams();
                 }
-            }
-            catch (Exception ex)
-            {
-                // Handle any exceptions that might occur during stream write operations
-                Console.WriteLine($"Error while sending Ctrl signals: {ex.Message}");
             }
         }
     }
