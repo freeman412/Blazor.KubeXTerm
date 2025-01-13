@@ -1,0 +1,20 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Color="Color.Error">
+            @ErrorMessage
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Primary">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter] public string ErrorMessage { get; set; }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+}
