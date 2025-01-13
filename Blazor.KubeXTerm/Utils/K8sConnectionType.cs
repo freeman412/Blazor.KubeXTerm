@@ -2,11 +2,11 @@
 {
     public class K8sConnectionType
     {
-        public static string STDERR = "STDERR";
-        public static string STDOUT = "STDOUT";
-        public static string BASH = "BASH";
-        public static string LOGS = "LOGS";
+        public static string STDERR = "StdErr";
+        public static string STDOUT = "StdOut";
+        public static string BASH = "Bash";
+        public static string LOGS = "Logs";
         public static string SH = "SH";
-        public static string ALLLOGS = "ALLLOGS";
+        public static string ALLLOGS = "All Logs";
     }
 }

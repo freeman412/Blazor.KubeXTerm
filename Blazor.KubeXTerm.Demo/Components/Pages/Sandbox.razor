@@ -25,33 +25,46 @@
                             <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
                             <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
                                 <CellTemplate>
-                                    <MudButtonGroup Class="pa-1"  Variant="Variant.Outlined">
-                                        <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning" 
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch All Logs Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Dark"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch Current Logs Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDOUT"))" 
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDERR"))" 
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                    </MudButtonGroup>
+                                    <MudSelect T="string" Disabled="@(context.Item.Status.Phase != "Running")"
+                                               Value="GetConnectionType(context.Item.Name())"
+                                               ValueChanged="@(value => SetConnectionType(context.Item.Name(), value))"
+                                               Class="pa-1"
+                                               Variant="Variant.Outlined">
+
+                                        <MudSelectItem Value="@(Utils.K8sConnectionType.BASH)">
+                                            <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
+                                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning"></MudIcon>
+                                            </MudTooltip>
+                                        </MudSelectItem>
+                                        <MudSelectItem Value="@(Utils.K8sConnectionType.ALLLOGS)">
+                                            <MudTooltip Text=@($"Launch All Logs Viewer For {context.Item.Name()}")>
+                                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Dark"></MudIcon>
+                                            </MudTooltip>
+                                        </MudSelectItem>
+                                        <MudSelectItem Value="@(Utils.K8sConnectionType.LOGS)">
+                                            <MudTooltip Text=@($"Launch Current Logs Viewer For {context.Item.Name()}")>
+                                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"></MudIcon>
+                                            </MudTooltip>
+                                        </MudSelectItem>
+                                        <MudSelectItem Value="@(Utils.K8sConnectionType.STDOUT)">
+                                             <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
+                                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"></MudIcon>
+                                            </MudTooltip>
+                                        </MudSelectItem>
+                                        <MudSelectItem Value="@(Utils.K8sConnectionType.STDERR)">
+                                            <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
+                                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"></MudIcon>
+                                            </MudTooltip>
+                                        </MudSelectItem>
+                                    </MudSelect>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn>
+                                <CellTemplate>
+                                    <MudButton MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                               OnClick="@(() => AddTabCallback(context.Item.Name(), connectionTypeSelected))">
+                                    Launch
+                                     </MudButton>
                                 </CellTemplate>
                             </TemplateColumn>
                         </Columns>
@@ -94,7 +107,7 @@
 </MudGrid>
 
 @code {
-
+    private string connectionTypeSelected = Utils.K8sConnectionType.BASH;
 
 
     private List<TabView> _tabs = new();
@@ -116,6 +129,21 @@
         return "padding: 2px";
     };
 
+    private Dictionary<string,string> _rowConnectionTypes = new();
+
+    private string GetConnectionType(string podName)
+    {
+        if (!_rowConnectionTypes.ContainsKey(podName))
+        {
+            _rowConnectionTypes[podName] = Utils.K8sConnectionType.BASH; // Default value
+        }
+        return _rowConnectionTypes[podName];
+    }
+
+    private void SetConnectionType(string podName, string connectionType)
+    {
+        _rowConnectionTypes[podName] = connectionType;
+    }
 
     KubernetesClientConfiguration K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
     IKubernetes K8sContext;
