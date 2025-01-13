@@ -36,46 +36,24 @@
                                 <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
                                 <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
                                     <CellTemplate>
-                                        <MudSelect T="string" Disabled="@(context.Item.Status.Phase != "Running")"
-                                        Value="GetConnectionType(context.Item.Name())"
-                                        ValueChanged="@(value => SetConnectionType(context.Item.Name(), value))"
-                                        Class="pa-1"
-                                        Variant="Variant.Outlined">
-
-                                            <MudSelectItem Value="@(Utils.K8sConnectionType.BASH)">
-                                                <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning"></MudIcon>
-                                                </MudTooltip>
-                                            </MudSelectItem>
-                                            <MudSelectItem Value="@(Utils.K8sConnectionType.ALLLOGS)">
-                                                <MudTooltip Text=@($"Launch All Logs Viewer For {context.Item.Name()}")>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Dark"></MudIcon>
-                                                </MudTooltip>
-                                            </MudSelectItem>
-                                            <MudSelectItem Value="@(Utils.K8sConnectionType.LOGS)">
-                                                <MudTooltip Text=@($"Launch Current Logs Viewer For {context.Item.Name()}")>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"></MudIcon>
-                                                </MudTooltip>
-                                            </MudSelectItem>
-                                            <MudSelectItem Value="@(Utils.K8sConnectionType.STDOUT)">
-                                                <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"></MudIcon>
-                                                </MudTooltip>
-                                            </MudSelectItem>
-                                            <MudSelectItem Value="@(Utils.K8sConnectionType.STDERR)">
-                                                <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
-                                                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"></MudIcon>
-                                                </MudTooltip>
-                                            </MudSelectItem>
-                                        </MudSelect>
-                                    </CellTemplate>
-                                </TemplateColumn>
-                                <TemplateColumn>
-                                    <CellTemplate>
-                                        <MudButton MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                        OnClick="@(() => AddTabCallback(context.Item.Name(), connectionTypeSelected))">
-                                            Launch
-                                        </MudButton>
+                                        <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                @($"Exec bash terminal")
+                                            </MudMenuItem>
+                                             <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                @($"All logs")
+                                             </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                @($"Current logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                @($"sdtout logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                @($"sddout logs")
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                           
                                     </CellTemplate>
                                 </TemplateColumn>
                             </Columns>
@@ -138,7 +116,7 @@
     // style the cells according to the element's physical classification and the molar mass.
     private Func<V1Pod, string> _cellStyleFunc => x =>
     {
-        return "padding: 2px";
+        return "padding: 2px; margin: 1px";
     };
 
     private Dictionary<string,string> _rowConnectionTypes = new();

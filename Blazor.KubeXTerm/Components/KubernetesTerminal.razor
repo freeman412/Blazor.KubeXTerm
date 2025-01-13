@@ -110,7 +110,7 @@
         StateHasChanged();
     }
 
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try{
@@ -174,16 +174,24 @@
     /// <returns></returns>
     private async Task StartTerminalConnection()
     {
-        if (ConnectionType == K8sConnectionType.BASH)
-            await KubeExecutor.ExecInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.STDOUT)
-            await KubeExecutor.StdOutInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.LOGS)
-            await KubeExecutor.LogsInPodAync(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.STDERR)
-            await KubeExecutor.StdErrInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.ALLLOGS)
-            await KubeExecutor.AllLogsAsync(PodName, ContainerName);
+        try
+        {
+            if (ConnectionType == K8sConnectionType.BASH)
+                await KubeExecutor.ExecInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.STDOUT)
+                await KubeExecutor.StdOutInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.LOGS)
+                await KubeExecutor.LogsInPodAync(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.STDERR)
+                await KubeExecutor.StdErrInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.ALLLOGS)
+                await KubeExecutor.AllLogsAsync(PodName, ContainerName);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error in StartTerminalConnection: {e.Message}");
+            Term.WriteLine("Unable to initiate terminal connection.");
+        }
     }
 
     /// <summary>
