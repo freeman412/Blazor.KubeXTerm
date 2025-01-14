@@ -277,11 +277,67 @@ namespace Blazor.KubeXTerm.Services
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public async Task WriteStream(string input)
+        {
+            try
+            {
+                // Write input to the stdin stream
+                var inputBytes = Encoding.UTF8.GetBytes(input);
+                await stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
+                await stdinStream.FlushAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await webTerminal.WriteLine($"Error writing to stream: {ex.Message}");
+
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public async Task WriteByte(byte b)
+        {
+            try
+            {
+                // Write input to the stdin stream, if sdin is null, we are just looking at logs
+                if (stdinStream == null)
+                    return;
+                stdinStream.WriteByte(b);
+                await stdinStream.FlushAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await webTerminal.WriteLine($"Error writing byte to stream: {ex.Message}");
+
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public async Task CloseStreams()
+        {
+            //TODO test if streams are open first?
+            stdinStream?.Close();
+            stdinStream?.Dispose();
+            webSocket?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token);
+            webSocket?.Dispose();
+        }
+
+        /// <summary>
         /// Reads a stream and immediately writes it in the web terminal
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        public async Task ReadStream(System.IO.Stream stream)
+        private async Task ReadStream(System.IO.Stream stream)
         {
             var buffer = new byte[4096];
             while (true)
@@ -306,47 +362,7 @@ namespace Blazor.KubeXTerm.Services
             }
         }
 
-        public async Task WriteStream(string input)
-        {
-            try
-            {
-                // Write input to the stdin stream
-                var inputBytes = Encoding.UTF8.GetBytes(input);
-                await stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
-                await stdinStream.FlushAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                await webTerminal.WriteLine($"Error writing to stream: {ex.Message}");
-
-            }
-        }
-
-        public async Task WriteByte(byte b)
-        {
-            try
-            {
-                // Write input to the stdin stream, if sdin is null, we are just looking at logs
-                if (stdinStream == null)
-                    return;
-                stdinStream.WriteByte(b);
-                await stdinStream.FlushAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                await webTerminal.WriteLine($"Error writing byte to stream: {ex.Message}");
-
-            }
-        }
-
-        public async Task CloseStreams()
-        {
-            //TODO test if streams are open first?
-            stdinStream?.Close();
-            stdinStream?.Dispose();
-            webSocket?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token);
-            webSocket?.Dispose();
-        }
+        
 
         /// <summary>
         /// Dispose of all the streams etc. //TODO: figure out known issue with the zombie bash 
@@ -359,7 +375,7 @@ namespace Blazor.KubeXTerm.Services
             {
                 try
                 {
-                    //Apparently this is not how kubectly even does this. Zombies are just ok?
+                    //Apparently this is not how kubectl even does this. Zombies are just ok?
                     // Send Ctrl+C (SIGINT) to interrupt the process in the terminal
                     //await WriteByte(0x03); // Ctrl+C (SIGINT)
                     // Send Ctrl+D (EOF) to simulate EOF or exit signal

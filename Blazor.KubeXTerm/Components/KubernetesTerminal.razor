@@ -41,8 +41,26 @@
 
     //The main Xterm Object
     private Xterm Term;
+    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
     KubeXTermConnectionManager KubeExecutor;
     private TerminalOptions _options;
+
+    //Change to take a parameter at some point - ideally would be an uploaded file? 
+    // For now default config works if running in k8s oro  using docker desktop kubernetes
+    KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private DotNetObjectReference<KubernetesTerminal> dotNetObjectReference;
+
+    /// <summary>
+    /// Tracks the Viewport width for resize events
+    /// </summary>
+    private int ViewportWidth { get; set; }
+
+    /// <summary>
+    /// Tracks the Viewport height for resize events
+    /// </summary>
+    private int ViewportHeight { get; set; }
 
     /// <summary>
     /// Setup the Terminal Options based on what kind of request it is
@@ -75,26 +93,8 @@
 
     }
 
-    //Change to take a parameter at some point - ideally would be an uploaded file? 
-    // For now default config works if running in k8s oro  using docker desktop kubernetes
-    KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
-    private bool _isConnected = false;
-    private DotNetObjectReference<KubernetesTerminal> dotNetObjectReference;
-
     /// <summary>
-    /// Tracks the Viewport width for resize events
-    /// </summary>
-    public int ViewportWidth { get; set; }
-    /// <summary>
-    /// Tracks the Viewport height for resize events
-    /// </summary>
-    public int ViewportHeight { get; set; }
-
-    /// <summary>
-    /// Method called from the javascript watcher for user initiated resizing
+    /// Method called from the javascript watcher for user (browser) initiated resizing
     /// </summary>
     /// <param name="width"></param>
     /// <param name="height"></param>
@@ -110,7 +110,11 @@
         StateHasChanged();
     }
 
-
+    /// <summary>
+    /// Registers the viewport warcher and performs initial resize of the terminal.
+    /// </summary>
+    /// <param name="firstRender"></param>
+    /// <returns></returns>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try{
@@ -120,16 +124,26 @@
                 await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
             }
 
-            if (KubeExecutor != null)
-            {
-                int rows = await Term.GetRows();
-                int cols = await Term.GetColumns();
-                await KubeExecutor.SendResizeCommandAsync(rows, cols);
-            }
+            await SendResize();
+
         }catch(Exception e)
         {
             //Not a big deal, the component is gone
             Console.WriteLine($"Error in OnAfterRenderAsync: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Send Resize to the KubeExecutor 
+    /// </summary>
+    /// <returns></returns>
+    private async Task SendResize()
+    {
+        if (KubeExecutor != null)
+        {
+            int rows = await Term.GetRows();
+            int cols = await Term.GetColumns();
+            await KubeExecutor.SendResizeCommandAsync(rows, cols);
         }
     }
 
@@ -154,18 +168,17 @@
 
     }
 
+    /// <summary>
+    /// Fits the terminal to the current browswer window size
+    /// </summary>
+    /// <returns></returns>
     private async Task FitTerminal()
     {
         //Tell the javacript XTerm to fit the container
         await Term.Addon("addon-fit").InvokeVoidAsync("fit");
 
         //Tell websocket in kubernetes about the resize
-        if (KubeExecutor != null )
-        {
-            int rows = await Term.GetRows();
-            int cols = await Term.GetColumns();
-            await KubeExecutor.SendResizeCommandAsync(rows, cols);
-        }
+        await SendResize();
     }
 
     /// <summary>
@@ -208,8 +221,6 @@
     /// <summary>
     /// 
     /// </summary>
-
-
     public async ValueTask DisposeAsync()
     {
         try
