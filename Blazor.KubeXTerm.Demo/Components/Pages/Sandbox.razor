@@ -5,6 +5,8 @@
 @using Blazor.KubeXTerm.Utils
 @using Blazor.KubeXTerm.Components
 
+@implements IAsyncDisposable
+
 @inject IDialogService DialogService
 
 <MudGrid Spacing="2">
@@ -102,7 +104,8 @@
 
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
-    private CancellationTokenSource _cancellationTokenSource;
+
+    private CancellationTokenSource _cancellationTokenSource = new();
 
     private bool _podsLoading = true;
 
@@ -153,9 +156,6 @@
     private async Task LoadPodsAndWatchAsync()
     {
         string namespaceName = "default";
-
-        _cancellationTokenSource?.Cancel();
-        _cancellationTokenSource = new CancellationTokenSource();
 
         try
         {
@@ -384,6 +384,14 @@
 
         StateHasChanged();
     }
+
+    public async ValueTask DisposeAsync()
+    {
+         // Cancel and dispose of the cancellation token source
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
+    }
+}
 
 
 }
