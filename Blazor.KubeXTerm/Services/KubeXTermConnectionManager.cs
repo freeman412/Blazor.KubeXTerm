@@ -362,8 +362,6 @@ namespace Blazor.KubeXTerm.Services
             }
         }
 
-        
-
         /// <summary>
         /// Dispose of all the streams etc. //TODO: figure out known issue with the zombie bash 
         /// processes left behind when closing the web terminals. 
