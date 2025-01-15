@@ -5,8 +5,6 @@ VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MudBlazor.KubeXTerm", "MudBlazor.KubeXTerm\MudBlazor.KubeXTerm.csproj", "{19B87B12-E49D-420A-AB10-B30355D86B9E}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1286A8B2-3334-4787-887B-2761DFA276AD}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +18,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{19B87B12-E49D-420A-AB10-B30355D86B9E} = {1286A8B2-3334-4787-887B-2761DFA276AD}
 	EndGlobalSection
 EndGlobal

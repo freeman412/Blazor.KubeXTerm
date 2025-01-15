@@ -3,6 +3,8 @@
 @using k8s.Models;
 @using KubeXTerm.Utils
 
+@implements IAsyncDisposable
+
 <MudGrid Spacing="2">
     <MudItem xs="4" >
         <MudPaper Class="ma-1" Style="height: 100%">
@@ -94,11 +96,10 @@
 
 @code {
 
-
-
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
-    private CancellationTokenSource _cancellationTokenSource;
+
+    private CancellationTokenSource _cancellationTokenSource = new();
 
     private bool _podsLoading = true;
 
@@ -134,9 +135,6 @@
     private async Task LoadPodsAndWatchAsync()
     {
         string namespaceName = "default";
-
-        _cancellationTokenSource?.Cancel();
-        _cancellationTokenSource = new CancellationTokenSource();
 
         try
         {
@@ -339,6 +337,14 @@
 
         StateHasChanged();
     }
+
+    public async ValueTask DisposeAsync()
+    {
+         // Cancel and dispose of the cancellation token source
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
+    }
+}
 
 
 }
