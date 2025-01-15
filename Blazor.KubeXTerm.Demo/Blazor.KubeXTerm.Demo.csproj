@@ -13,4 +13,9 @@
     <PackageReference Include="MudBlazor.ThemeManager" Version="2.1.0" />
     <PackageReference Include="XtermBlazor" Version="2.1.2" />
   </ItemGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\Blazor.KubeXTerm\Blazor.KubeXTerm.csproj" />
+  </ItemGroup>
 </Project>

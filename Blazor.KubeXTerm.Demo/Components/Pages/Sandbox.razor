@@ -1,65 +1,69 @@
 ﻿@page "/sandbox"
+@using Blazor.KubeXTerm.Demo.Components.Dialogs
 @using k8s;
 @using k8s.Models;
-@using KubeXTerm.Utils
+@using Blazor.KubeXTerm.Utils
+@using Blazor.KubeXTerm.Components
 
 @implements IAsyncDisposable
+
+@inject IDialogService DialogService
 
 <MudGrid Spacing="2">
     <MudItem xs="4" >
         <MudPaper Class="ma-1" Style="height: 100%">
             <MudGrid Spacing="1">
                 <MudItem xs="12">
-                    <MudDataGrid 
-                    Items="@_podList" T="V1Pod" Hover="true"
-                    Filterable="true" 
-                    FilterMode="@DataGridFilterMode.Simple"
-                    ShowFilterIcons="false"
-                    Bordered="true"                        
-                    Dense="true"
-                    RowStyleFunc="@_rowStyleFunc"
-                    Loading="@_podsLoading"
-                    LoadingProgressColor="Color.Primary"
-                    Class="pa-3">
-                        <Columns>
-                            <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
-                            <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
-                            <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
-                                <CellTemplate>
-                                    <MudButtonGroup Class="pa-1"  Variant="Variant.Outlined">
-                                        <MudTooltip Text=@($"Launch Bash Terminal For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Warning" 
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "BASH"))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch All Logs Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Dark"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch Current Logs Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Info"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "LOGS"))"
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch stdout Log Viewer For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Success"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDOUT"))" 
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                        <MudTooltip Text=@($"Launch stderr Log Terminal For {context.Item.Name()}")>
-                                            <MudIconButton Icon="@Icons.Material.Filled.Terminal" Color="Color.Error"
-                                            OnClick="@(() => AddTabCallback(context.Item.Name(), "STDERR"))" 
-                                            Disabled="@(context.Item.Status.Phase != "Running")"></MudIconButton>
-                                        </MudTooltip>
-                                    </MudButtonGroup>
-                                </CellTemplate>
-                            </TemplateColumn>
-                        </Columns>
-                        <PagerContent>
-                            <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
-                        </PagerContent>
-                    </MudDataGrid>
+                    @if(_k8sError)
+                    {
+                        <MudText Class="ma-4">
+                            Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
+                         </MudText>
+                    }
+                    else
+                    {
+                        <MudDataGrid 
+                        Items="@_podList" T="V1Pod" Hover="true"
+                        Filterable="true" 
+                        FilterMode="@DataGridFilterMode.Simple"
+                        ShowFilterIcons="false"
+                        Bordered="true"                        
+                        Dense="true"
+                        RowStyleFunc="@_rowStyleFunc"
+                        Loading="@_podsLoading"
+                        LoadingProgressColor="Color.Primary"
+                        Class="pa-3">
+                            <Columns>
+                                <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
+                                <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
+                                <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
+                                    <CellTemplate>
+                                        <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                @($"Exec bash terminal")
+                                            </MudMenuItem>
+                                             <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                @($"All logs")
+                                             </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                @($"Current logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                @($"sdtout logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                @($"sddout logs")
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                           
+                                    </CellTemplate>
+                                </TemplateColumn>
+                            </Columns>
+                            <PagerContent>
+                                <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
+                            </PagerContent>
+                        </MudDataGrid>
+                    }
                 </MudItem>
             </MudGrid>
         </MudPaper>
@@ -95,6 +99,8 @@
 </MudGrid>
 
 @code {
+    private string connectionTypeSelected = Utils.K8sConnectionType.BASH;
+
 
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
@@ -113,11 +119,26 @@
     // style the cells according to the element's physical classification and the molar mass.
     private Func<V1Pod, string> _cellStyleFunc => x =>
     {
-        return "padding: 2px";
+        return "padding: 2px; margin: 1px";
     };
 
+    private Dictionary<string,string> _rowConnectionTypes = new();
 
-    KubernetesClientConfiguration K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+    private string GetConnectionType(string podName)
+    {
+        if (!_rowConnectionTypes.ContainsKey(podName))
+        {
+            _rowConnectionTypes[podName] = Utils.K8sConnectionType.BASH; // Default value
+        }
+        return _rowConnectionTypes[podName];
+    }
+
+    private void SetConnectionType(string podName, string connectionType)
+    {
+        _rowConnectionTypes[podName] = connectionType;
+    }
+
+    KubernetesClientConfiguration K8sConfig; 
     IKubernetes K8sContext;
 
     //private V1PodList _podList = new V1PodList();
@@ -230,6 +251,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
+            _podsLoading = false;
         }
     }
 
@@ -242,19 +264,44 @@
         public bool ShowCloseIcon { get; set; } = false;
     }
 
-
-    protected override void OnInitialized()
+    bool _k8sError = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        K8sContext = new Kubernetes(K8sConfig);
-        base.OnInitialized();
-    }
+        if(firstRender)
+        {
+            try
+            {
+                K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+                K8sContext = new Kubernetes(K8sConfig);
 
+                await LoadPodsAndWatchAsync();
+            }
+
+            catch (Exception e)
+            {
+                ShowKubernetesErrorDialog(e.Message);
+                _podsLoading = false;
+                _k8sError = true;
+                StateHasChanged(); //def need this!
+            }
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
 
+    }
         //_podList = await LoadGridData();
 
-        await LoadPodsAndWatchAsync();
+        
+
+    private void ShowKubernetesErrorDialog(string errorMessage)
+    {
+        var parameters = new DialogParameters
+    {
+        { "ErrorMessage", errorMessage }
+    };
+
+        DialogService.Show<KubernetesErrorDialog>("Kubernetes Configuration Error", parameters);
     }
 
     protected override void OnAfterRender(bool firstRender)

@@ -11,8 +11,8 @@
 
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<MudContainer style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" Class="overflow-hidden">
-    <MudItem xs="12" Style="height: calc(100vh - 250px);">
+<div style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" class="overflow-hidden">
+    <div style="height: calc(100vh - 250px); width: 100%">
         @* Adjust for header/footer size *@
         <Xterm OnData="@WriteToTerminal"
         Addons="Addons"
@@ -23,8 +23,8 @@
         Class="rounded-lg" 
         OnRender="FitTerminal"
         />
-    </MudItem>
-</MudContainer>
+    </div>
+</div>
 
 @code 
 {
@@ -41,11 +41,29 @@
 
     //The main Xterm Object
     private Xterm Term;
+    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
     KubeXTermConnectionManager KubeExecutor;
     private TerminalOptions _options;
 
+    //Change to take a parameter at some point - ideally would be an uploaded file? 
+    // For now default config works if running in k8s oro  using docker desktop kubernetes.
+    KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private DotNetObjectReference<KubernetesTerminal> dotNetObjectReference;
+
     /// <summary>
-    /// Setup the Terminal Options based on what kind of request it is
+    /// Tracks the Viewport width for resize events.
+    /// </summary>
+    private int ViewportWidth { get; set; }
+
+    /// <summary>
+    /// Tracks the viewport height for resize events.
+    /// </summary>
+    private int ViewportHeight { get; set; }
+
+    /// <summary>
+    /// Sets up the terminal options based on the type of connection.
     /// </summary>
     protected override void OnParametersSet()
     {
@@ -75,30 +93,12 @@
 
     }
 
-    //Change to take a parameter at some point - ideally would be an uploaded file? 
-    // For now default config works if running in k8s oro  using docker desktop kubernetes
-    KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
-    private bool _isConnected = false;
-    private DotNetObjectReference<KubernetesTerminal> dotNetObjectReference;
-
     /// <summary>
-    /// Tracks the Viewport width for resize events
+    /// Method called from the JavaScript watcher for user (browser) initiated resizing.
     /// </summary>
-    public int ViewportWidth { get; set; }
-    /// <summary>
-    /// Tracks the Viewport height for resize events
-    /// </summary>
-    public int ViewportHeight { get; set; }
-
-    /// <summary>
-    /// Method called from the javascript watcher for user initiated resizing
-    /// </summary>
-    /// <param name="width"></param>
-    /// <param name="height"></param>
-    /// <returns></returns>
+    /// <param name="width">The new width of the viewport.</param>
+    /// <param name="height">The new height of the viewport.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     [JSInvokable]
     public async Task OnResize(int width, int height)
     {
@@ -110,7 +110,11 @@
         StateHasChanged();
     }
 
-    
+    /// <summary>
+    /// Registers the viewport watcher and performs the initial resize of the terminal.
+    /// </summary>
+    /// <param name="firstRender">Indicates whether this is the first render.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try{
@@ -120,12 +124,8 @@
                 await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
             }
 
-            if (KubeExecutor != null)
-            {
-                int rows = await Term.GetRows();
-                int cols = await Term.GetColumns();
-                await KubeExecutor.SendResizeCommandAsync(rows, cols);
-            }
+            await SendResize();
+
         }catch(Exception e)
         {
             //Not a big deal, the component is gone
@@ -134,9 +134,23 @@
     }
 
     /// <summary>
-    /// The first render method for the XTerm Component. Sets up the connection to k8s and fits the terminal to the window.
+    /// Sends the resize command to the KubeExecutor.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task SendResize()
+    {
+        if (KubeExecutor != null)
+        {
+            int rows = await Term.GetRows();
+            int cols = await Term.GetColumns();
+            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+        }
+    }
+
+    /// <summary>
+    /// The first render method for the XTerm component. Sets up the connection to k8s and fits the terminal to the window.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task OnFirstRender()
     {
         //Initialize the kubernetes executor
@@ -154,52 +168,59 @@
 
     }
 
+    /// <summary>
+    /// Fits the terminal to the current browser window size.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task FitTerminal()
     {
         //Tell the javacript XTerm to fit the container
         await Term.Addon("addon-fit").InvokeVoidAsync("fit");
 
         //Tell websocket in kubernetes about the resize
-        if (KubeExecutor != null )
+        await SendResize();
+    }
+
+    /// <summary>
+    /// Sets up the terminal connection based on the requested type.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task StartTerminalConnection()
+    {
+        try
         {
-            int rows = await Term.GetRows();
-            int cols = await Term.GetColumns();
-            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+            if (ConnectionType == K8sConnectionType.BASH)
+                await KubeExecutor.ExecInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.STDOUT)
+                await KubeExecutor.StdOutInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.LOGS)
+                await KubeExecutor.LogsInPodAync(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.STDERR)
+                await KubeExecutor.StdErrInPod(PodName, ContainerName);
+            else if (ConnectionType == K8sConnectionType.ALLLOGS)
+                await KubeExecutor.AllLogsAsync(PodName, ContainerName);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error in StartTerminalConnection: {e.Message}");
+            Term.WriteLine("Unable to initiate terminal connection.");
         }
     }
 
     /// <summary>
-    /// Sets up the terminal connection based on requested type
+    /// Writes data to the terminal. This method is called from the OnData function.
     /// </summary>
-    /// <returns></returns>
-    private async Task StartTerminalConnection()
-    {
-        if (ConnectionType == K8sConnectionType.BASH)
-            await KubeExecutor.ExecInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.STDOUT)
-            await KubeExecutor.StdOutInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.LOGS)
-            await KubeExecutor.LogsInPodAync(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.STDERR)
-            await KubeExecutor.StdErrInPod(PodName, ContainerName);
-        else if (ConnectionType == K8sConnectionType.ALLLOGS)
-            await KubeExecutor.AllLogsAsync(PodName, ContainerName);
-    }
-
-    /// <summary>
-    /// Anytime anything is put into the XTerm, it immediately gets written 
-    /// here from the OnData function
-    /// </summary>
-    /// <param name="data"></param>
-    /// <returns></returns>
+    /// <param name="data">The data to write to the terminal.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task WriteToTerminal(string data)
     {
         await KubeExecutor.WriteStream(data);
     }
 
     /// <summary>
-    /// 
+    /// Disposes of resources used by the component.
     /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     public async ValueTask DisposeAsync()
     {
         try

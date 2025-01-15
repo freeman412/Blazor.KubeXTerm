@@ -1,4 +1,4 @@
-using MudBlazor.KubeXTerm.Components;
+using Blazor.KubeXTerm.Demo.Components;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);

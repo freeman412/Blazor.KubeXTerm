@@ -4,7 +4,7 @@
 ![Build Status](https://img.shields.io/github/actions/workflow/status/freeman412/MudBlazor.KubeXTerm/ci.yml)
 ![Stars](https://img.shields.io/github/stars/freeman412/MudBlazor.KubeXTerm)
 
-This project is a MudBlazor Component that provides Xterm access into Kubernetes workloads.
+This project is a Blazor Component that provides Xterm access into Kubernetes workloads.
 
 ---
 
