@@ -11,11 +11,11 @@
 @inject ISnackbar Snackbar
 
 <MudGrid Spacing="2">
-    <MudItem xs="4" >
-        <MudPaper Class="ma-1" Style="height: 100%">
+    <MudItem xs="4">
+        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
             <MudGrid Spacing="2">
                 <MudItem xs="12">
-                    <MudPaper Class="ma-2    pa-2">
+                    <MudPaper Class="ma-2 pa-2">
                         <MudForm @ref="form" @bind-IsValid="@_k8sRequestFormSuccess">
                             <MudGrid>
                                 <MudItem xs="12">
@@ -63,9 +63,9 @@
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudPaper Class="ma-2 pa-2">
+                    <MudPaper Class="ma-2">
                         <MudItem xs="12">
-                            @if(_k8sError)
+                            @if (_k8sError)
                             {
                                 <MudText Class="ma-4">
                                     Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
@@ -78,13 +78,20 @@
                                              Hover="true"
                                              Filterable="true"
                                              FilterMode="@DataGridFilterMode.Simple"
+                                             QuickFilter="@_podQuickFilter"
                                              ShowFilterIcons="false"
                                              Bordered="true"
                                              Dense="true"
                                              RowStyleFunc="@_rowStyleFunc"
                                              Loading="@_podsLoading"
                                              LoadingProgressColor="Color.Primary"
-                                             >
+                                             FixedHeader Height="400px">
+                                    <ToolBarContent>
+                                        <MudText Typo="Typo.h6">Pod Status</MudText>
+                                        <MudSpacer />
+                                        <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                                                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                                    </ToolBarContent>
                                     <Columns>
                                         <!-- Pod Name -->
                                         <PropertyColumn Property="x => x.Name()"
@@ -156,10 +163,10 @@
                                         </TemplateColumn>
                                     </Columns>
 
-                                    <!-- Pager Content -->
+                                    @*                                     <!-- Pager Content -->
                                     <PagerContent>
                                         <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
-                                    </PagerContent>
+                                    </PagerContent> *@
                                 </MudDataGrid>
 
                             }
@@ -168,60 +175,75 @@
                 </MudItem>
             </MudGrid>
         </MudPaper>
-    </MudItem>  
-    <MudItem xs="8">
-        <MudPaper Class="ma-1" Style="height: 100%">
-            <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-        PanelClass="border-radius-bottom"
-        TabHeaderClass="border-radius-top"
-        Elevation="4"
-
-        KeepPanelsAlive >
-            <ChildContent>
-
-                @foreach (var tab in _tabs)
-                {
-                    <MudTabPanel 
-                        Text="@tab.Label" Tag="@tab.Id"
-                        ShowCloseIcon="@tab.ShowCloseIcon"
-                        Icon="@Icons.Material.Filled.Terminal"
-                        @key="@tab.Id">
-                            @tab.K8sTerminalFragment
-                    </MudTabPanel>
-                }
-            </ChildContent>
-            <TabPanelHeader>
-                <MudTooltip Text="Close tab. All data will be lost">
-                    <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-                </MudTooltip>
-            </TabPanelHeader>
-        </MudTabs>
-    </MudPaper>
     </MudItem>
-   
+    <MudItem xs="8">
+        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
+            <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
+                     PanelClass="border-radius-bottom"
+                     TabHeaderClass="border-radius-top"
+                     Elevation="4"
+                     KeepPanelsAlive>
+                <ChildContent>
+
+                    @foreach (var tab in _tabs)
+                    {
+                        <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
+                                     ShowCloseIcon="@tab.ShowCloseIcon"
+                                     Icon="@Icons.Material.Filled.Terminal"
+                                     @key="@tab.Id">
+                            @tab.K8sTerminalFragment
+                        </MudTabPanel>
+                    }
+                </ChildContent>
+                <TabPanelHeader>
+                    <MudTooltip Text="Close tab. All data will be lost">
+                        <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
+                    </MudTooltip>
+                </TabPanelHeader>
+            </MudTabs>
+        </MudPaper>
+    </MudItem>
+
 </MudGrid>
 
 @code {
+
     private string connectionTypeSelected = Utils.K8sConnectionType.BASH;
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
     private CancellationTokenSource _cancellationTokenSource = new();
     private bool _podsLoading = true;
     bool _k8sError = false;
-    KubernetesClientConfiguration K8sConfig; 
+    KubernetesClientConfiguration K8sConfig;
     IKubernetes _k8sClient;
 
     private MudForm form;
     private bool _k8sRequestFormSuccess;
 
+
+
+    //podview variables
+
+    private string _podSearchString;
+    private Func<V1Pod, bool> _podQuickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_podSearchString))
+            return true;
+
+        if (x.Name().Contains(_podSearchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
     // Form fields
     private string podName = string.Empty;
     private string containerName;
     private string containerImage;
-    private string imagePullPolicy = "Always"; 
+    private string imagePullPolicy = "Always";
     private string imagePullSecret;
 
-    List<int> _sizeOptions = new List<int> { 1, 2,  3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
     private string GetContainerState(V1ContainerStatus containerStatus)
     {
@@ -231,7 +253,7 @@
             return "Running";
         if (containerStatus.State?.Terminated != null)
             return $"Terminated: {containerStatus.State.Terminated.Reason}";
-    
+
         return "Unknown";
     }
 
@@ -244,17 +266,17 @@
         {
             // Create the pod definition
             var pod = new V1Pod
-            {
-                ApiVersion = "v1",
-                Kind = "Pod",
-                Metadata = new V1ObjectMeta
                 {
-                    Name = podName
-                },
-                Spec = new V1PodSpec
-                {
-                    Containers = new[]
+                    ApiVersion = "v1",
+                    Kind = "Pod",
+                    Metadata = new V1ObjectMeta
                     {
+                        Name = podName
+                    },
+                    Spec = new V1PodSpec
+                    {
+                        Containers = new[]
+                        {
                         new V1Container
                         {
                             Name = containerName,
@@ -262,15 +284,15 @@
                             ImagePullPolicy = imagePullPolicy
                         }
                     },
-                    ImagePullSecrets = new[]
-                    {
+                        ImagePullSecrets = new[]
+                        {
                         new V1LocalObjectReference
                         {
                             Name = imagePullSecret
                         }
                     }
-                }
-            };
+                    }
+                };
 
             try
             {
@@ -283,7 +305,7 @@
             }
         }
     }
-    
+
     private async Task DeleteK8sPodAsync(V1Pod pod)
     {
         try
@@ -316,7 +338,7 @@
         return "padding: 2px; margin: 1px";
     };
 
-    private Dictionary<string,string> _rowConnectionTypes = new();
+    private Dictionary<string, string> _rowConnectionTypes = new();
 
     private string GetConnectionType(string podName)
     {
@@ -332,7 +354,7 @@
         _rowConnectionTypes[podName] = connectionType;
     }
 
-   
+
     //private V1PodList _podList = new V1PodList();
     private IList<V1Pod> _podList = new List<V1Pod>();
 
@@ -450,10 +472,10 @@
         public bool ShowCloseIcon { get; set; } = false;
     }
 
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if(firstRender)
+        if (firstRender)
         {
             try
             {
@@ -477,7 +499,7 @@
     {
 
     }
-    
+
     private void ShowKubernetesErrorDialog(string errorMessage)
     {
         var parameters = new DialogParameters
@@ -490,19 +512,19 @@
 
     protected override void OnAfterRender(bool firstRender)
     {
-        if(firstRender)
+        if (firstRender)
         {
             var welcomeTab = new TabView
-            {
-                Id = Guid.NewGuid(),
-                Label = $"Welcome",
-                K8sTerminalFragment = builder =>
                 {
-                    builder.OpenComponent<WelcomeTerminal>(0);
-                    builder.CloseComponent();
-                }
+                    Id = Guid.NewGuid(),
+                    Label = $"Welcome",
+                    K8sTerminalFragment = builder =>
+                    {
+                        builder.OpenComponent<WelcomeTerminal>(0);
+                        builder.CloseComponent();
+                    }
 
-            };
+                };
             _tabs.Add(welcomeTab);
             _activeTabIndex = _tabs.Count - 1;
             StateHasChanged();
@@ -531,7 +553,7 @@
     }
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <param name="tabPanel"></param>
     public void RemoveTab(MudTabPanel tabPanel)
@@ -557,7 +579,7 @@
                 // If the active tab is after the removed tab, adjust its index
                 _activeTabIndex--;
             }
-            else if(_activeTabIndex == indexToBeRemoved)
+            else if (_activeTabIndex == indexToBeRemoved)
             {
                 //if the active tab is being removed
                 _activeTabIndex = 1;
@@ -571,7 +593,7 @@
 
     public async ValueTask DisposeAsync()
     {
-         // Cancel and dispose of the cancellation token source
+        // Cancel and dispose of the cancellation token source
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
     }
