@@ -16,7 +16,7 @@
         <MudSpacer />
         <MudItem Class="pr-2">
             <MudBadge Visible="@(_discoAlerts > 0)" Content="@_discoAlerts" Color="Color.Error" Overlap="true" Class="mx-2 my-2">
-                <button onclick="@ToggleDiscoBallMotion"><DiscoBall @ref=_discoBall Radius="18" IsColorful="@(_discoAlerts > 0)" /></button>
+                <button onclick="@ToggleDiscoBallMotion"><DiscoBall @ref=_discoBall Radius="18" IsColorful="@(_discoAlerts > 0)" Motion="@_discoBallIsMoving" /></button>
             </MudBadge>
         </MudItem>
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
@@ -52,11 +52,9 @@
 
     private async Task ToggleDiscoBallMotion(){
         if(_discoBallIsMoving){
-            _discoBall.PauseDiscoBall();
             _discoBallIsMoving = false;
         }
         else{
-            _discoBall.RestartDiscoBall();
             _discoBallIsMoving = true;
         }
     }

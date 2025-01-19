@@ -8,8 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Blazor.DiscoBall" Version="1.0.1" />
-    <PackageReference Include="KubernetesClient" Version="15.0.1" />
+    <PackageReference Include="KubernetesClient" Version="16.0.1" />
     <PackageReference Include="XtermBlazor" Version="2.1.2" />
   </ItemGroup>
 
