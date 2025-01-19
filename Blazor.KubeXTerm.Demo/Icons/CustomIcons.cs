@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace MudBlazor.KubeXTerm
+namespace Blazor.KubeXTerm.Demo.Icons
 {
     public class CustomIcons
     {

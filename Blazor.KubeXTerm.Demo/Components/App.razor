@@ -15,30 +15,25 @@
 
     @* <link href="_content/Blazor.Extensions.XTerm/xterm.css" rel="stylesheet"> *@
     <link href="_content/XtermBlazor/XtermBlazor.min.css" rel="stylesheet" />
+    <link href="_content/Blazor.DiscoBall/css/discoBall.css" rel="stylesheet" />
 
    <link href="css/app.css" rel="stylesheet"/>
 
 
 
-    <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    <Routes @rendermode="InteractiveServer" />
 
     <script src="https://cdn.jsdelivr.net/npm/@@xterm/addon-fit@0.9.0/lib/addon-fit.min.js"></script>
 
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_content/XtermBlazor/XtermBlazor.min.js"></script>
-
-
-@*    
-    <script src="_framework/blazor.server.js"></script> *@
-
-    <!-- Load the XtermBlazor library and register addons -->
-    <script src="_content/XtermBlazor/XtermBlazor.min.js"></script>
     <script>XtermBlazor.registerAddons({ "addon-fit": new FitAddon.FitAddon() });</script>
+    <script src="_content/Blazor.Discoball/js/discoBall.js"></script>
 
     <!-- Custom terminal resize script -->
     <script src="js/terminalResize.js">

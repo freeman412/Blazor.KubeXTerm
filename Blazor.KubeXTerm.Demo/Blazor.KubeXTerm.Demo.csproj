@@ -8,6 +8,7 @@
 
 
   <ItemGroup>
+    <PackageReference Include="Blazor.DiscoBall" Version="1.0.1" />
     <PackageReference Include="KubernetesClient" Version="15.0.1" />
     <PackageReference Include="MudBlazor" Version="7.*" />
     <PackageReference Include="MudBlazor.ThemeManager" Version="2.1.0" />

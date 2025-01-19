@@ -8,66 +8,124 @@
 @implements IAsyncDisposable
 
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <MudGrid Spacing="2">
     <MudItem xs="4" >
         <MudPaper Class="ma-1" Style="height: 100%">
-            <MudGrid Spacing="1">
+            <MudGrid Spacing="2">
                 <MudItem xs="12">
-                    @if(_k8sError)
-                    {
-                        <MudText Class="ma-4">
-                            Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
-                         </MudText>
-                    }
-                    else
-                    {
-                        <MudDataGrid 
-                        Items="@_podList" T="V1Pod" Hover="true"
-                        Filterable="true" 
-                        FilterMode="@DataGridFilterMode.Simple"
-                        ShowFilterIcons="false"
-                        Bordered="true"                        
-                        Dense="true"
-                        RowStyleFunc="@_rowStyleFunc"
-                        Loading="@_podsLoading"
-                        LoadingProgressColor="Color.Primary"
-                        Class="pa-3">
-                            <Columns>
-                                <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
-                                <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
-                                <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
-                                    <CellTemplate>
-                                        <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
-                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
-                                                @($"Exec bash terminal")
-                                            </MudMenuItem>
-                                             <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
-                                                @($"All logs")
-                                             </MudMenuItem>
-                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
-                                                @($"Current logs")
-                                            </MudMenuItem>
-                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
-                                                @($"sdtout logs")
-                                            </MudMenuItem>
-                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
-                                                @($"sddout logs")
-                                            </MudMenuItem>
-                                        </MudMenu>
-                                           
-                                    </CellTemplate>
-                                </TemplateColumn>
-                            </Columns>
-                            <PagerContent>
-                                <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
-                            </PagerContent>
-                        </MudDataGrid>
-                    }
+                    <MudPaper Class="ma-2    pa-2">
+                        <MudForm @ref="form" @bind-IsValid="@_k8sRequestFormSuccess">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Form</MudText>
+                                </MudItem>
+
+                                <!-- Pod Name -->
+                                <MudItem xs="6">
+                                    <MudTextField @bind-Value="podName" Label="Pod Name" Required="true" />
+                                </MudItem>
+
+                                <!-- Container Name -->
+                                <MudItem xs="6">
+                                    <MudTextField @bind-Value="containerName" Label="Container Name" Required="true" />
+                                </MudItem>
+
+                                <!-- Container Image -->
+                                <MudItem xs="6">
+                                    <MudTextField @bind-Value="containerImage" Label="Container Image" Required="true" />
+                                </MudItem>
+
+                                <!-- Image Pull Policy -->
+                                <MudItem xs="6">
+                                    <MudSelect @bind-Value="imagePullPolicy" Label="Image Pull Policy" Required="true">
+                                        <MudSelectItem Value="@("Always")">Always</MudSelectItem>
+                                        <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
+                                        <MudSelectItem Value="@("Never")">Never</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+
+                                <!-- Image Pull Secret -->
+                                <MudItem xs="6">
+                                    <MudTextField @bind-Value="imagePullSecret" Label="Image Pull Secret" />
+                                </MudItem>
+
+                                <!-- Submit Button -->
+                                <MudItem xs="12">
+                                    <MudButton OnClick="RequestK8sResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                        Request Resource
+                                    </MudButton>
+                                </MudItem>
+                            </MudGrid>
+                        </MudForm>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudPaper Class="ma-2 pa-2">
+                        <MudItem xs="12">
+                            @if(_k8sError)
+                            {
+                                <MudText Class="ma-4">
+                                    Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
+                                </MudText>
+                            }
+                            else
+                            {
+                                <MudDataGrid 
+                                Items="@_podList" T="V1Pod" Hover="true"
+                                Filterable="true" 
+                                FilterMode="@DataGridFilterMode.Simple"
+                                ShowFilterIcons="false"
+                                Bordered="true"                        
+                                Dense="true"
+                                RowStyleFunc="@_rowStyleFunc"
+                                Loading="@_podsLoading"
+                                LoadingProgressColor="Color.Primary"
+                                Class="pa-3">
+                                    <Columns>
+                                        <PropertyColumn Property="x => x.Name()" Title="Name" CellStyleFunc="@_cellStyleFunc"/>
+                                        <PropertyColumn Property="x => x.Status.Phase" Title="Status" CellStyleFunc="@_cellStyleFunc" />
+                                        <TemplateColumn CellStyleFunc="@_cellStyleFunc" >
+
+                                            <CellTemplate>
+                                                <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                        @($"Exec bash terminal")
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                        @($"All logs")
+                                                    </MudMenuItem>
+                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                        @($"Current logs")
+                                                    </MudMenuItem>
+                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                        @($"sdtout logs")
+                                                    </MudMenuItem>
+                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")" OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                        @($"sddout logs")
+                                                    </MudMenuItem>
+                                                </MudMenu>
+
+                                            </CellTemplate>
+                                        </TemplateColumn>
+                                        <TemplateColumn Title="Action">
+                                            <CellTemplate>
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" OnClick="@(() =>  DeleteK8sPodAsync(context.Item))"></MudIconButton>
+                                            </CellTemplate>
+                                        </TemplateColumn>
+                                    </Columns>
+                                    <PagerContent>
+                                        <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
+                                    </PagerContent>
+                                </MudDataGrid>
+                            }
+                        </MudItem>
+                    </MudPaper>
                 </MudItem>
             </MudGrid>
         </MudPaper>
-
     </MudItem>
     <MudItem xs="8">
         <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
@@ -100,14 +158,92 @@
 
 @code {
     private string connectionTypeSelected = Utils.K8sConnectionType.BASH;
-
-
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
-
     private CancellationTokenSource _cancellationTokenSource = new();
-
     private bool _podsLoading = true;
+    bool _k8sError = false;
+    KubernetesClientConfiguration K8sConfig; 
+    IKubernetes _k8sClient;
+
+    private MudForm form;
+    private bool _k8sRequestFormSuccess;
+
+    // Form fields
+    private string podName = string.Empty;
+    private string containerName;
+    private string containerImage;
+    private string imagePullPolicy = "Always"; 
+    private string imagePullSecret;
+
+    List<int> _sizeOptions = new List<int> { 1, 2,  3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+    private async Task RequestK8sResourceAsync()
+    {
+        await form.Validate();
+
+        if (_k8sRequestFormSuccess)
+        {
+            // Create the pod definition
+            var pod = new V1Pod
+            {
+                ApiVersion = "v1",
+                Kind = "Pod",
+                Metadata = new V1ObjectMeta
+                {
+                    Name = podName
+                },
+                Spec = new V1PodSpec
+                {
+                    Containers = new[]
+                    {
+                        new V1Container
+                        {
+                            Name = containerName,
+                            Image = containerImage,
+                            ImagePullPolicy = imagePullPolicy
+                        }
+                    },
+                    ImagePullSecrets = new[]
+                    {
+                        new V1LocalObjectReference
+                        {
+                            Name = imagePullSecret
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                var createdPod = await _k8sClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
+                Snackbar.Add($"Pod '{createdPod.Metadata.Name}' created successfully.", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error creating pod: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+    
+    private async Task DeleteK8sPodAsync(V1Pod pod)
+    {
+        try
+        {
+            // Delete the pod from the specified namespace
+            await _k8sClient.CoreV1.DeleteNamespacedPodAsync(
+                name: pod.Name(),
+                namespaceParameter: pod.Namespace());
+
+            Console.WriteLine($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.");
+            Snackbar.Add($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting pod '{pod.Name()}': {ex.Message}");
+        }
+    }
+
 
     // style the rows where the Element.Position == 0 to have italic text.
     private Func<V1Pod, int, string> _rowStyleFunc => (x, i) =>
@@ -138,17 +274,9 @@
         _rowConnectionTypes[podName] = connectionType;
     }
 
-    KubernetesClientConfiguration K8sConfig; 
-    IKubernetes K8sContext;
-
+   
     //private V1PodList _podList = new V1PodList();
     private IList<V1Pod> _podList = new List<V1Pod>();
-
-    private async Task RefreshPodData()
-    {
-        //_podList = await LoadGridData();
-        StateHasChanged();
-    }
 
     private readonly object _lock = new();
 
@@ -160,7 +288,7 @@
         try
         {
             // Step 1: Get the initial list of pods
-            var initialPodList = await K8sContext.CoreV1.ListNamespacedPodAsync(
+            var initialPodList = await _k8sClient.CoreV1.ListNamespacedPodAsync(
                 namespaceName,
                 cancellationToken: _cancellationTokenSource.Token
             );
@@ -176,7 +304,7 @@
             StateHasChanged();
 
             // Step 2: Watch for changes to the pods
-            using var watch = await K8sContext.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
+            using var watch = await _k8sClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
                 namespaceName,
                 watch: true,
                 cancellationToken: _cancellationTokenSource.Token
@@ -199,7 +327,7 @@
 
                             case WatchEventType.Modified:
                                 // Update existing pod
-                                var existingPod = Enumerable.FirstOrDefault<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name));
+                                var existingPod = Enumerable.LastOrDefault<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name));
                                 if (existingPod != null)
                                 {
                                     this._podList.Remove(existingPod);
@@ -210,7 +338,7 @@
                             case WatchEventType.Deleted:
                                 if (pod.Metadata?.Name != null)
                                 {
-                                    var podToRemove = _podList.FirstOrDefault(p => p.Metadata?.Name == pod.Metadata?.Name);
+                                    var podToRemove = _podList.LastOrDefault(p => p.Metadata?.Name == pod.Metadata?.Name);
                                     if (podToRemove != null)
                                     {
                                         _podList.Remove(podToRemove);
@@ -264,7 +392,7 @@
         public bool ShowCloseIcon { get; set; } = false;
     }
 
-    bool _k8sError = false;
+    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if(firstRender)
@@ -272,7 +400,7 @@
             try
             {
                 K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-                K8sContext = new Kubernetes(K8sConfig);
+                _k8sClient = new Kubernetes(K8sConfig);
 
                 await LoadPodsAndWatchAsync();
             }
@@ -286,14 +414,12 @@
             }
         }
     }
+
     protected override async Task OnInitializedAsync()
     {
 
     }
-        //_podList = await LoadGridData();
-
-        
-
+    
     private void ShowKubernetesErrorDialog(string errorMessage)
     {
         var parameters = new DialogParameters
@@ -335,7 +461,7 @@
                 {
                     builder.OpenComponent<KubernetesTerminal>(0);
                     builder.AddAttribute(1, "PodName", podName);
-                    builder.AddComponentParameter(2, "K8sContext", K8sContext);
+                    builder.AddComponentParameter(2, "K8sContext", _k8sClient);
                     builder.AddComponentParameter(3, "ConnectionType", connectionType);
                     builder.CloseComponent();
                 }

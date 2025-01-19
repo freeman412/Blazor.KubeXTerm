@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using Blazor.DiscoBall.Components
+@inherits LayoutComponentBase
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -13,6 +14,11 @@
         <BlinkingCursor />
 
         <MudSpacer />
+        <MudItem Class="pr-2">
+            <MudBadge Visible="@(_discoAlerts > 0)" Content="@_discoAlerts" Color="Color.Error" Overlap="true" Class="mx-2 my-2">
+                <button onclick="@ToggleDiscoBallMotion"><DiscoBall @ref=_discoBall Radius="18" IsColorful="@(_discoAlerts > 0)" /></button>
+            </MudBadge>
+        </MudItem>
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
         @* <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" /> *@
 
@@ -34,9 +40,26 @@
 
 @code 
 {
+
+
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
     private MudTheme? _theme = null;
+
+    private DiscoBall _discoBall;
+    private bool _discoBallIsMoving = true;
+    private int _discoAlerts = 1;
+
+    private async Task ToggleDiscoBallMotion(){
+        if(_discoBallIsMoving){
+            _discoBall.PauseDiscoBall();
+            _discoBallIsMoving = false;
+        }
+        else{
+            _discoBall.RestartDiscoBall();
+            _discoBallIsMoving = true;
+        }
+    }
 
     protected override void OnInitialized()
     {
