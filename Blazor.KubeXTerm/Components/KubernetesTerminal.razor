@@ -12,14 +12,14 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <div style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" class="overflow-hidden">
-    <div style="height: calc(100vh - 250px); width: 100%">
+    <div style="height: calc(100vh - 195px); width: 100%">
         @* Adjust for header/footer size *@
         <Xterm OnData="@WriteToTerminal"
         Addons="Addons"
         @ref="Term"
         Options="_options"
         OnFirstRender="@OnFirstRender"
-        Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
+        Style="height: 100%; width: 100%;"
         Class="rounded-lg" 
         OnRender="FitTerminal"
         />
