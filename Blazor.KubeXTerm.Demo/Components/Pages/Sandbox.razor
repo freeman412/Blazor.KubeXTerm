@@ -19,7 +19,7 @@
                         <MudForm @ref="form" @bind-IsValid="@_k8sRequestFormSuccess">
                             <MudGrid>
                                 <MudItem xs="12">
-                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Form</MudText>
+                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Request Form</MudText>
                                 </MudItem>
 
                                 <!-- Pod Name -->
@@ -67,7 +67,7 @@
 
                         </MudTextField>
                     </MudPaper>
-                    </MudItem>
+                </MudItem>
                 <MudItem xs="12">
                     <MudPaper Class="ma-2">
                         <MudItem xs="12">
@@ -79,102 +79,131 @@
                             }
                             else
                             {
-                                <MudDataGrid Items="@_podList"
-                                T="V1Pod"
-                                Hover="true"
-                                Filterable="true"
-                                FilterMode="@DataGridFilterMode.Simple"
-                                QuickFilter="@_podQuickFilter"
-                                ShowFilterIcons="false"
-                                Bordered="true"
-                                Dense="true"
-                                RowStyleFunc="@_rowStyleFunc"
-                                Loading="@_podsLoading"
-                                LoadingProgressColor="Color.Primary"
-                                FixedHeader Height="400px">
-                                    <ToolBarContent>
-                                        <MudText Typo="Typo.h6">Pod Status</MudText>
-                                        <MudSpacer />
-                                        <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
-                                        AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-                                    </ToolBarContent>
-                                    <Columns>
-                                        <!-- Pod Name -->
-                                        <PropertyColumn Property="x => x.Name()"
-                                        Title="Name"
-                                        CellStyleFunc="@_cellStyleFunc" />
+                                if(_watching)
+                                {
+                                    <MudDataGrid Items="@_podList"
+                                    T="V1Pod"
+                                    Hover="true"
+                                    Filterable="true"
+                                    FilterMode="@DataGridFilterMode.Simple"
+                                    QuickFilter="@_podQuickFilter"
+                                    ShowFilterIcons="false"
+                                    Bordered="true"
+                                    Dense="true"
+                                    RowStyleFunc="@_rowStyleFunc"
+                                    Loading="@_podsLoading"
+                                    LoadingProgressColor="Color.Primary"
+                                    FixedHeader Height="400px">
+                                        <ToolBarContent>
+                                            <MudText Typo="Typo.h6">Pod Status</MudText>
+                                            <MudSpacer />
+                                            <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                                            AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                                        </ToolBarContent>
+                                        <Columns>
+                                            <!-- Pod Name -->
+                                            <PropertyColumn Property="x => x.Name()"
+                                            Title="Name"
+                                            CellStyleFunc="@_cellStyleFunc" />
 
-                                        <!-- Pod Phase (e.g., Running, Pending) -->
-                                        @* <PropertyColumn Property="x => x.Status.Phase" *@
-                                        @*                 Title="Status" *@
-                                        @*                 CellStyleFunc="@_cellStyleFunc" /> *@
+                                            <!-- Pod Phase (e.g., Running, Pending) -->
+                                            @* <PropertyColumn Property="x => x.Status.Phase" *@
+                                            @*                 Title="Status" *@
+                                            @*                 CellStyleFunc="@_cellStyleFunc" /> *@
 
-                                        <!-- Container States -->
-                                        <TemplateColumn Title="Container State"
-                                        CellStyleFunc="@_cellStyleFunc">
-                                            <CellTemplate>
-                                                @if (context.Item.Status?.ContainerStatuses != null)
-                                                {
-                                                    <ul>
-                                                        @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
-                                                        {
-                                                            <li>
-                                                                <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-                                                else
-                                                {
-                                                    <span>No data</span>
-                                                }
-                                            </CellTemplate>
-                                        </TemplateColumn>
+                                            <!-- Container States -->
+                                            <TemplateColumn Title="Container State"
+                                            CellStyleFunc="@_cellStyleFunc">
+                                                <CellTemplate>
+                                                    @if (context.Item.Status?.ContainerStatuses != null)
+                                                    {
+                                                        <ul>
+                                                            @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
+                                                            {
+                                                                <li>
+                                                                    <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
+                                                                </li>
+                                                            }
+                                                        </ul>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>No data</span>
+                                                    }
+                                                </CellTemplate>
+                                            </TemplateColumn>
 
-                                        <!-- Menu Actions -->
-                                        <TemplateColumn Title="Actions"
-                                        CellStyleFunc="@_cellStyleFunc">
-                                            <CellTemplate>
-                                                <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
-                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
-                                                        @($"Exec Shell")
-                                                    </MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
-                                                        @($"All logs")
-                                                    </MudMenuItem>
-                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
-                                                        @($"Current logs")
-                                                    </MudMenuItem>
-                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
-                                                        @($"stdout logs")
-                                                    </MudMenuItem>
-                                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
-                                                        @($"stderr logs")
-                                                    </MudMenuItem>
-                                                </MudMenu>
-                                            </CellTemplate>
-                                        </TemplateColumn>
+                                            <!-- Menu Actions -->
+                                            <TemplateColumn Title="Actions"
+                                            CellStyleFunc="@_cellStyleFunc">
+                                                <CellTemplate>
+                                                    <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                            @($"Exec Shell")
+                                                        </MudMenuItem>
+                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                            @($"All logs")
+                                                        </MudMenuItem>
+                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                            @($"Current logs")
+                                                        </MudMenuItem>
+                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                            @($"stdout logs")
+                                                        </MudMenuItem>
+                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                            @($"stderr logs")
+                                                        </MudMenuItem>
+                                                    </MudMenu>
+                                                </CellTemplate>
+                                            </TemplateColumn>
 
-                                        <!-- Delete Action -->
-                                        <TemplateColumn Title="Delete">
-                                            <CellTemplate>
-                                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                OnClick="@(() => DeleteK8sPodAsync(context.Item))">
-                                                </MudIconButton>
-                                            </CellTemplate>
-                                        </TemplateColumn>
-                                    </Columns>
+                                            <!-- Delete Action -->
+                                            <TemplateColumn Title="Delete">
+                                                <CellTemplate>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                    OnClick="@(() => DeleteK8sPodAsync(context.Item))">
+                                                    </MudIconButton>
+                                                </CellTemplate>
+                                            </TemplateColumn>
+                                        </Columns>
 
-                                    @*                                     <!-- Pager Content -->
+                                        @*                                     <!-- Pager Content -->
                                     <PagerContent>
                                         <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
                                     </PagerContent> *@
-                                </MudDataGrid>
+                                    </MudDataGrid>
+                                }
+                                else
+                                {
+                                    <MudPaper Class="pa-4" Elevation="4">
+                                        <MudGrid Spacing="2">
+                                            <MudItem xs="12" Class="d-flex justify-center align-center">
+                                                <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mud-icon-size-48" Color="Color.Error"></MudIcon>
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="@Color.Error">
+                                                    Kubernetes Watch Connection Failed
+                                                </MudText>
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.body1">
+                                                    Unable to establish a connection to the Kubernetes watch stream. Please check your connection or cluster status and try again.
+                                                </MudText>
+                                            </MudItem>
+                                            <MudItem xs="12" Class="mt-2">
+                                                <MudButton OnClick="LoadPodsAndWatchAsync" Color="Color.Error" Variant="Variant.Filled" Style="width: 150px;">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1" />
+                                                    Restart
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudPaper>
 
+                                }   
                             }
                         </MudItem>
                     </MudPaper>
@@ -369,14 +398,18 @@
     private IList<V1Pod> _podList = new List<V1Pod>();
 
     private readonly object _lock = new();
+    private bool _watching = true;
 
     // Load the initial list of pods and start watching for changes
     private async Task LoadPodsAndWatchAsync()
     {
+        _podsLoading = true;
         string namespaceName = "default";
+        StateHasChanged();
 
         try
         {
+            
             // Step 1: Get the initial list of pods
             var initialPodList = await _k8sClient.CoreV1.ListNamespacedPodAsync(
                 namespaceName,
@@ -389,7 +422,7 @@
 
                 _podsLoading = false;
             }
-
+            _watching = true;
             // Notify the UI to re-render
             StateHasChanged();
 
@@ -397,7 +430,8 @@
             using var watch = await _k8sClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
                 namespaceName,
                 watch: true,
-                cancellationToken: _cancellationTokenSource.Token
+                cancellationToken: _cancellationTokenSource.Token 
+               
             );
 
             watch.Watch(
@@ -452,10 +486,16 @@
                 onError: (exception) =>
                 {
                     Console.WriteLine($"Watch error: {exception.Message}");
+                    _watching = false;
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
                 },
                 onClosed: () =>
                 {
                     Console.WriteLine("Watch closed.");
+                    _watching = false;
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
                 }
             );
 
@@ -465,11 +505,18 @@
         catch (OperationCanceledException)
         {
             Console.WriteLine("Operation was canceled.");
+            _podsLoading = false;
+            _watching = false;
+            // Notify the UI to re-render
+            InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
             _podsLoading = false;
+            _watching = false;
+            // Notify the UI to re-render
+            InvokeAsync(StateHasChanged);
         }
     }
 
