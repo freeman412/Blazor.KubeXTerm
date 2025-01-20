@@ -11,7 +11,7 @@
 
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<div style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" class="overflow-hidden">
+<div style="max-width: 100% !important; padding: 10px;" class="overflow-hidden">
     <div style="height: calc(100vh - 195px); width: 100%">
         @* Adjust for header/footer size *@
         <Xterm OnData="@WriteToTerminal"
@@ -19,7 +19,7 @@
         @ref="Term"
         Options="_options"
         OnFirstRender="@OnFirstRender"
-        Style="height: 100%; width: 100%;"
+        Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
         Class="rounded-lg" 
         OnRender="FitTerminal"
         />
@@ -28,6 +28,7 @@
 
 @code 
 {
+
     [Parameter]
     public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] 
@@ -38,6 +39,11 @@
     public required IKubernetes K8sContext { get; set; }
     [Parameter, EditorRequired]
     public required string ConnectionType {get; set;}
+    [Parameter]
+    public string[] Command { get; set; } = new[]
+        {
+            "/bin/bash"
+        };
 
     //The main Xterm Object
     private Xterm Term;
@@ -190,7 +196,7 @@
         try
         {
             if (ConnectionType == K8sConnectionType.BASH)
-                await KubeExecutor.ExecInPod(PodName, ContainerName);
+                await KubeExecutor.ExecInPod(PodName, ContainerName, Command);
             else if (ConnectionType == K8sConnectionType.STDOUT)
                 await KubeExecutor.StdOutInPod(PodName, ContainerName);
             else if (ConnectionType == K8sConnectionType.LOGS)

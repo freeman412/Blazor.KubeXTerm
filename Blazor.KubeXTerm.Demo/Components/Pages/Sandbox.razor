@@ -29,7 +29,7 @@
 
                                 <!-- Container Name -->
                                 <MudItem xs="6">
-                                    <MudTextField @bind-Value="containerName" Label="Container Name" Required="true" />
+                                    <MudTextField @bind-Value="containerName" Label="Container Name" Required="false" />
                                 </MudItem>
 
                                 <!-- Container Image -->
@@ -61,7 +61,13 @@
                         </MudForm>
                     </MudPaper>
                 </MudItem>
+                <MudItem xs="12">
+                    <MudPaper Class="ma-2">
+                        <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
 
+                        </MudTextField>
+                    </MudPaper>
+                    </MudItem>
                 <MudItem xs="12">
                     <MudPaper Class="ma-2">
                         <MudItem xs="12">
@@ -74,29 +80,29 @@
                             else
                             {
                                 <MudDataGrid Items="@_podList"
-                                             T="V1Pod"
-                                             Hover="true"
-                                             Filterable="true"
-                                             FilterMode="@DataGridFilterMode.Simple"
-                                             QuickFilter="@_podQuickFilter"
-                                             ShowFilterIcons="false"
-                                             Bordered="true"
-                                             Dense="true"
-                                             RowStyleFunc="@_rowStyleFunc"
-                                             Loading="@_podsLoading"
-                                             LoadingProgressColor="Color.Primary"
-                                             FixedHeader Height="400px">
+                                T="V1Pod"
+                                Hover="true"
+                                Filterable="true"
+                                FilterMode="@DataGridFilterMode.Simple"
+                                QuickFilter="@_podQuickFilter"
+                                ShowFilterIcons="false"
+                                Bordered="true"
+                                Dense="true"
+                                RowStyleFunc="@_rowStyleFunc"
+                                Loading="@_podsLoading"
+                                LoadingProgressColor="Color.Primary"
+                                FixedHeader Height="400px">
                                     <ToolBarContent>
                                         <MudText Typo="Typo.h6">Pod Status</MudText>
                                         <MudSpacer />
                                         <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
-                                                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                                        AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
                                     </ToolBarContent>
                                     <Columns>
                                         <!-- Pod Name -->
                                         <PropertyColumn Property="x => x.Name()"
-                                                        Title="Name"
-                                                        CellStyleFunc="@_cellStyleFunc" />
+                                        Title="Name"
+                                        CellStyleFunc="@_cellStyleFunc" />
 
                                         <!-- Pod Phase (e.g., Running, Pending) -->
                                         @* <PropertyColumn Property="x => x.Status.Phase" *@
@@ -105,7 +111,7 @@
 
                                         <!-- Container States -->
                                         <TemplateColumn Title="Container State"
-                                                        CellStyleFunc="@_cellStyleFunc">
+                                        CellStyleFunc="@_cellStyleFunc">
                                             <CellTemplate>
                                                 @if (context.Item.Status?.ContainerStatuses != null)
                                                 {
@@ -127,26 +133,26 @@
 
                                         <!-- Menu Actions -->
                                         <TemplateColumn Title="Actions"
-                                                        CellStyleFunc="@_cellStyleFunc">
+                                        CellStyleFunc="@_cellStyleFunc">
                                             <CellTemplate>
                                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
-                                                        @($"Exec bash terminal")
+                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                        @($"Exec Shell")
                                                     </MudMenuItem>
                                                     <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
                                                         @($"All logs")
                                                     </MudMenuItem>
                                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
                                                         @($"Current logs")
                                                     </MudMenuItem>
                                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
                                                         @($"stdout logs")
                                                     </MudMenuItem>
                                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                    OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
                                                         @($"stderr logs")
                                                     </MudMenuItem>
                                                 </MudMenu>
@@ -157,7 +163,7 @@
                                         <TemplateColumn Title="Delete">
                                             <CellTemplate>
                                                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                               OnClick="@(() => DeleteK8sPodAsync(context.Item))">
+                                                OnClick="@(() => DeleteK8sPodAsync(context.Item))">
                                                 </MudIconButton>
                                             </CellTemplate>
                                         </TemplateColumn>
@@ -179,18 +185,18 @@
     <MudItem xs="8">
         <MudPaper Class="ma-1 pa-1" Style="height: 100%">
             <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-                     PanelClass="border-radius-bottom"
-                     TabHeaderClass="border-radius-top"
-                     Elevation="4"
-                     KeepPanelsAlive>
+            PanelClass="border-radius-bottom"
+            TabHeaderClass="border-radius-top"
+            Elevation="4"
+            KeepPanelsAlive>
                 <ChildContent>
 
                     @foreach (var tab in _tabs)
                     {
                         <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
-                                     ShowCloseIcon="@tab.ShowCloseIcon"
-                                     Icon="@Icons.Material.Filled.Terminal"
-                                     @key="@tab.Id">
+                        ShowCloseIcon="@tab.ShowCloseIcon"
+                        Icon="@Icons.Material.Filled.Terminal"
+                        @key="@tab.Id">
                             @tab.K8sTerminalFragment
                         </MudTabPanel>
                     }
@@ -242,6 +248,8 @@
     private string containerImage;
     private string imagePullPolicy = "Always";
     private string imagePullSecret;
+    private string _cmd = "/bin/sh";
+    private Dictionary<string, string> _env;
 
     List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
@@ -257,10 +265,12 @@
         return "Unknown";
     }
 
-
     private async Task RequestK8sResourceAsync()
     {
         await form.Validate();
+
+        if (string.IsNullOrEmpty(containerName))
+            containerName = podName;
 
         if (_k8sRequestFormSuccess)
         {
@@ -543,6 +553,7 @@
                     builder.AddAttribute(1, "PodName", podName);
                     builder.AddComponentParameter(2, "K8sContext", _k8sClient);
                     builder.AddComponentParameter(3, "ConnectionType", connectionType);
+                    builder.AddComponentParameter(4, "Command", _cmd.Trim().Split(" "));
                     builder.CloseComponent();
                 }
             };

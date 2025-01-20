@@ -2,20 +2,20 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
-<MudContainer style="max-width: 100% !important; background: #141414; padding: 16px; border-radius: 0 0 10px 10px;" Class="overflow-hidden">
-    <MudItem xs="12" Style="height: calc(100vh - 195px);">
+<div style="max-width: 100% !important; padding: 10px" class="overflow-hidden">
+    <div style="height: calc(100vh - 195px); width: 100%">
         @* Adjust for header/footer size *@
         <Xterm
-        Addons="Addons"
-        @ref="Term"
-        Options="_options"
-        OnFirstRender="@OnFirstRender"
-        Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
-        Class="rounded-lg" 
-        OnRender="FitTerminal"
-        OnKey="OnTerminalKey" />
-    </MudItem>
-</MudContainer>
+            Addons="Addons"
+            @ref="Term"
+            Options="_options"
+            OnFirstRender="@OnFirstRender"
+            Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
+            Class="rounded-lg" 
+            OnRender="FitTerminal"
+            OnKey="OnTerminalKey" />
+        </div>
+</div>
 
 @code{
 

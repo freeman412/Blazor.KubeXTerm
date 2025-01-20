@@ -65,7 +65,7 @@ namespace Blazor.KubeXTerm.Services
                 }
             }
             catch (Exception ex)
-            {
+            {   
                 Console.WriteLine($"Error sending resize command: {ex.Message}");
             }
         }
@@ -76,16 +76,8 @@ namespace Blazor.KubeXTerm.Services
         /// </summary>
         /// <param name="podname"></param>
         /// <returns></returns>
-        public async Task ExecInPod(string podname, string containerName)
+        public async Task ExecInPod(string podname, string containerName, string[] cmd)
         {
-
-            var cmd = new[]
-            {
-                "/bin/bash",
-                "-c",
-                @"id -u customuser &>/dev/null || useradd -m -s /bin/bash customuser && cd /home/customuser && exec gosu customuser /bin/bash"
-            };
-
             //var cmd = new[] { "/bin/bash" }; // Use an interactive shell for command execution
             webSocket = await K8sContext.WebSocketNamespacedPodExecAsync(
                 name: podname,

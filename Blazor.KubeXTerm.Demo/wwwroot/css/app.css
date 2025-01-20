@@ -1,24 +1,4 @@
-﻿.terminal-container {
-    /* this is important */
-    overflow: hidden;
-}
-
-.xterm .xterm-viewport {
-    /* see : https://github.com/xtermjs/xterm.js/issues/3564#issuecomment-1004417440 */
-    width: initial !important;
-}
-.mud-container-maxwidth-100 .mud-container-maxwidth-lg {
-    max-width: 100% !important;
-}
-
-.kube-xterm-active-panel {
-    background: red;
-}
-
-.kube-xterm-panel-background {
-    background: #141414;
-}
-
+﻿
 .border-radius-bottom {
     border-radius: 0 0 10px 10px;
 }
