@@ -51,6 +51,49 @@
                                     <MudTextField @bind-Value="imagePullSecret" Label="Image Pull Secret" />
                                 </MudItem>
 
+                                <MudItem xs="12" Class="mt-2">
+                                    <MudGrid>
+                                        <MudItem xs="6">
+                                            <MudText Typo="Typo.h6">Environment Variables</MudText>
+                                            </MudItem>
+                                        <MudItem xs="6">                                                               
+                                            <MudIconButton
+                                                Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                                Color="Color.Primary" 
+                                                OnClick="@(() => AddEnvVar())" 
+                                                />
+                                            </MudItem>    
+                                    </MudGrid>
+                                 </MudItem>
+                                <MudItem xs="12">
+                                   
+                                    <MudTable Items="_envVars" Bordered="false" Dense="true" >
+                                        <HeaderContent>
+                                            <MudTh>Name</MudTh>
+                                            <MudTh>Value</MudTh>
+                                            <MudTh></MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>
+                                                <MudTextField  @bind-Value="context.Name" Placeholder="Enter name" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <MudTextField @bind-Value="context.Value" Placeholder="Enter value" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <MudGrid>
+                                                    <MudItem xs="6">
+
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                        Size="Size.Small"
+                                                        Color="Color.Error" 
+                                                        OnClick="@(() => DeleteEnvVar(context))" >
+                                                        </MudIconButton></MudItem></MudGrid>
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </MudItem>
+
                                 <!-- Submit Button -->
                                 <MudItem xs="12">
                                     <MudButton OnClick="RequestK8sResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
@@ -254,7 +297,18 @@
 
     private MudForm form;
     private bool _k8sRequestFormSuccess;
-
+    private List<V1EnvVar> _envVars = new List<V1EnvVar>
+    {
+        new V1EnvVar { Name = "", Value = "" }
+    };
+    private void AddEnvVar()
+    {
+        _envVars.Add(new V1EnvVar("", ""));
+    }
+    private void DeleteEnvVar(V1EnvVar env)
+    {
+        _envVars.Remove(env);
+    }
 
 
     //podview variables
@@ -320,7 +374,9 @@
                         {
                             Name = containerName,
                             Image = containerImage,
-                            ImagePullPolicy = imagePullPolicy
+                            ImagePullPolicy = imagePullPolicy,
+                            Env = new List<V1EnvVar> {}
+                            
                         }
                     },
                         ImagePullSecrets = new[]
