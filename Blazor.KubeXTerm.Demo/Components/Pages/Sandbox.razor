@@ -1,4 +1,7 @@
 ﻿@page "/sandbox"
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Serialization
 @using Blazor.KubeXTerm.Demo.Components.Dialogs
 @using k8s;
 @using k8s.Models;
@@ -12,48 +15,85 @@
 
 <MudGrid Spacing="2">
     <MudItem xs="4">
-        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
+        <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
             <MudGrid Spacing="2">
                 <MudItem xs="12">
                     <MudPaper Class="ma-2 pa-2">
-                        <MudForm @ref="form" @bind-IsValid="@_k8sRequestFormSuccess">
+                        <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
                             <MudGrid>
                                 <MudItem xs="12">
-                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Request Form</MudText>
+                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
                                 </MudItem>
-
                                 <!-- Pod Name -->
                                 <MudItem xs="6">
-                                    <MudTextField @bind-Value="podName" Label="Pod Name" Required="true" />
+                                    <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true" />
                                 </MudItem>
-
                                 <!-- Container Name -->
                                 <MudItem xs="6">
-                                    <MudTextField @bind-Value="containerName" Label="Container Name" Required="false" />
+                                    <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false" />
                                 </MudItem>
-
                                 <!-- Container Image -->
                                 <MudItem xs="6">
-                                    <MudTextField @bind-Value="containerImage" Label="Container Image" Required="true" />
+                                    <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true" />
                                 </MudItem>
-
                                 <!-- Image Pull Policy -->
                                 <MudItem xs="6">
-                                    <MudSelect @bind-Value="imagePullPolicy" Label="Image Pull Policy" Required="true">
+                                    <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
                                         <MudSelectItem Value="@("Always")">Always</MudSelectItem>
                                         <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
                                         <MudSelectItem Value="@("Never")">Never</MudSelectItem>
                                     </MudSelect>
                                 </MudItem>
-
                                 <!-- Image Pull Secret -->
                                 <MudItem xs="6">
-                                    <MudTextField @bind-Value="imagePullSecret" Label="Image Pull Secret" />
+                                    <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret" />
+                                </MudItem>
+                                <MudItem xs="12" Class="mt-2">
+                                    <MudGrid>
+                                        <MudItem xs="6">
+                                            <MudText Typo="Typo.h6">Environment Variables</MudText>
+                                            </MudItem>
+                                        <MudItem xs="6">                                                               
+                                            <MudIconButton
+                                                Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                                Color="Color.Primary" 
+                                                OnClick="@(() => AddEnvVar())" 
+                                                />
+                                            </MudItem>    
+                                    </MudGrid>
+                                 </MudItem>
+                                <MudItem xs="12">
+                                   
+                                    <MudTable Items="_envVars" Bordered="false" Dense="true" >
+                                        <HeaderContent>
+                                            <MudTh>Name</MudTh>
+                                            <MudTh>Value</MudTh>
+                                            <MudTh></MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>
+                                                <MudTextField  @bind-Value="context.Name" Placeholder="Enter name" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <MudTextField @bind-Value="context.Value" Placeholder="Enter value" />
+                                            </MudTd>
+                                            <MudTd>
+                                                <MudGrid>
+                                                    <MudItem xs="6">
+
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                        Size="Size.Small"
+                                                        Color="Color.Error" 
+                                                        OnClick="@(() => DeleteEnvVar(context))" >
+                                                        </MudIconButton></MudItem></MudGrid>
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
                                 </MudItem>
 
                                 <!-- Submit Button -->
                                 <MudItem xs="12">
-                                    <MudButton OnClick="RequestK8sResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                    <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
                                         Request Resource
                                     </MudButton>
                                 </MudItem>
@@ -71,7 +111,7 @@
                 <MudItem xs="12">
                     <MudPaper Class="ma-2">
                         <MudItem xs="12">
-                            @if (_k8sError)
+                            @if (_k8SError)
                             {
                                 <MudText Class="ma-4">
                                     Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
@@ -86,11 +126,11 @@
                                     Hover="true"
                                     Filterable="true"
                                     FilterMode="@DataGridFilterMode.Simple"
-                                    QuickFilter="@_podQuickFilter"
+                                    QuickFilter="@PodQuickFilter"
                                     ShowFilterIcons="false"
                                     Bordered="true"
                                     Dense="true"
-                                    RowStyleFunc="@_rowStyleFunc"
+                                    RowStyleFunc="@RowStyleFunc"
                                     Loading="@_podsLoading"
                                     LoadingProgressColor="Color.Primary"
                                     FixedHeader Height="400px">
@@ -104,7 +144,7 @@
                                             <!-- Pod Name -->
                                             <PropertyColumn Property="x => x.Name()"
                                             Title="Name"
-                                            CellStyleFunc="@_cellStyleFunc" />
+                                            CellStyleFunc="@CellStyleFunc" />
 
                                             <!-- Pod Phase (e.g., Running, Pending) -->
                                             @* <PropertyColumn Property="x => x.Status.Phase" *@
@@ -113,7 +153,7 @@
 
                                             <!-- Container States -->
                                             <TemplateColumn Title="Container State"
-                                            CellStyleFunc="@_cellStyleFunc">
+                                            CellStyleFunc="@CellStyleFunc">
                                                 <CellTemplate>
                                                     @if (context.Item.Status?.ContainerStatuses != null)
                                                     {
@@ -135,26 +175,26 @@
 
                                             <!-- Menu Actions -->
                                             <TemplateColumn Title="Actions"
-                                            CellStyleFunc="@_cellStyleFunc">
+                                            CellStyleFunc="@CellStyleFunc">
                                                 <CellTemplate>
                                                     <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
                                                             @($"Exec Shell")
                                                         </MudMenuItem>
-                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
                                                             @($"All logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
                                                             @($"Current logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
                                                             @($"stdout logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
                                                             @($"stderr logs")
                                                         </MudMenuItem>
                                                     </MudMenu>
@@ -165,7 +205,7 @@
                                             <TemplateColumn Title="Delete">
                                                 <CellTemplate>
                                                     <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                    OnClick="@(() => DeleteK8sPodAsync(context.Item))">
+                                                    OnClick="@(() => DeleteK8SPodAsync(context.Item))">
                                                     </MudIconButton>
                                                 </CellTemplate>
                                             </TemplateColumn>
@@ -212,7 +252,7 @@
         </MudPaper>
     </MudItem>
     <MudItem xs="8">
-        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
+        <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
             <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
             PanelClass="border-radius-bottom"
             TabHeaderClass="border-radius-top"
@@ -226,7 +266,7 @@
                         ShowCloseIcon="@tab.ShowCloseIcon"
                         Icon="@Icons.Material.Filled.Terminal"
                         @key="@tab.Id">
-                            @tab.K8sTerminalFragment
+                            @tab.K8STerminalFragment
                         </MudTabPanel>
                     }
                 </ChildContent>
@@ -242,25 +282,36 @@
 </MudGrid>
 
 @code {
-
-    private string connectionTypeSelected = Utils.K8sConnectionType.BASH;
+    
+    private string _connectionTypeSelected = Utils.K8SConnectionType.Bash;
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
     private CancellationTokenSource _cancellationTokenSource = new();
     private bool _podsLoading = true;
-    bool _k8sError = false;
-    KubernetesClientConfiguration K8sConfig;
-    IKubernetes _k8sClient;
+    bool _k8SError = false;
+    private KubernetesClientConfiguration _k8SConfig;
+    private IKubernetes _k8SClient;
 
-    private MudForm form;
-    private bool _k8sRequestFormSuccess;
-
+    private MudForm _form;
+    private bool _k8SRequestFormSuccess;
+    private List<V1EnvVar> _envVars = new()
+    {
+        new V1EnvVar { Name = "", Value = "" }
+    };
+    private void AddEnvVar()
+    {
+        _envVars.Add(new V1EnvVar("", ""));
+    }
+    private void DeleteEnvVar(V1EnvVar env)
+    {
+        _envVars.Remove(env);
+    }
 
 
     //podview variables
 
     private string _podSearchString;
-    private Func<V1Pod, bool> _podQuickFilter => x =>
+    private Func<V1Pod, bool> PodQuickFilter => x =>
     {
         if (string.IsNullOrWhiteSpace(_podSearchString))
             return true;
@@ -272,13 +323,12 @@
     };
 
     // Form fields
-    private string podName = string.Empty;
-    private string containerName;
-    private string containerImage;
-    private string imagePullPolicy = "Always";
-    private string imagePullSecret;
+    private string _podName = string.Empty;
+    private string _containerName;
+    private string _containerImage;
+    private string _imagePullPolicy = "Always";
+    private string _imagePullSecret;
     private string _cmd = "/bin/sh";
-    private Dictionary<string, string> _env;
 
     List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
@@ -294,14 +344,17 @@
         return "Unknown";
     }
 
-    private async Task RequestK8sResourceAsync()
+    /// <summary>
+    /// Request Kubernetes resource asynchronously.
+    /// </summary>
+    private async Task RequestK8SResourceAsync()
     {
-        await form.Validate();
+        await _form.Validate();
 
-        if (string.IsNullOrEmpty(containerName))
-            containerName = podName;
+        if (string.IsNullOrEmpty(_containerName))
+            _containerName = _podName;
 
-        if (_k8sRequestFormSuccess)
+        if (_k8SRequestFormSuccess)
         {
             // Create the pod definition
             var pod = new V1Pod
@@ -310,7 +363,7 @@
                     Kind = "Pod",
                     Metadata = new V1ObjectMeta
                     {
-                        Name = podName
+                        Name = _podName
                     },
                     Spec = new V1PodSpec
                     {
@@ -318,16 +371,18 @@
                         {
                         new V1Container
                         {
-                            Name = containerName,
-                            Image = containerImage,
-                            ImagePullPolicy = imagePullPolicy
+                            Name = _containerName,
+                            Image = _containerImage,
+                            ImagePullPolicy = _imagePullPolicy,
+                            Env = _envVars
+                            
                         }
                     },
                         ImagePullSecrets = new[]
                         {
                         new V1LocalObjectReference
                         {
-                            Name = imagePullSecret
+                            Name = _imagePullSecret
                         }
                     }
                     }
@@ -335,7 +390,7 @@
 
             try
             {
-                var createdPod = await _k8sClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
+                var createdPod = await _k8SClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
                 Snackbar.Add($"Pod '{createdPod.Metadata.Name}' created successfully.", Severity.Success);
             }
             catch (Exception ex)
@@ -345,12 +400,43 @@
         }
     }
 
-    private async Task DeleteK8sPodAsync(V1Pod pod)
+    private string _json;
+
+
+    /// <summary>
+    /// Parses a pod from a JSON string.
+    /// </summary>
+    /// <param name="jsonContent"></param>
+    /// <returns></returns>
+    private async Task<V1Pod> ParsePodFromJson(string jsonContent)
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true,
+            Converters =
+            {
+                new JsonStringEnumConverter()
+            } 
+        };
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(jsonContent));
+        // Parse the JSON string to a Kubernetes object
+        var pod = await System.Text.Json.JsonSerializer.DeserializeAsync<V1Pod>(stream, options, _cancellationTokenSource.Token);
+
+        return pod;
+    }
+    
+    /// <summary>
+    ///  Deletes a Kubernetes Pod.
+    /// </summary>
+    /// <param name="pod"></param>
+    private async Task DeleteK8SPodAsync(V1Pod pod)
     {
         try
         {
             // Delete the pod from the specified namespace
-            await _k8sClient.CoreV1.DeleteNamespacedPodAsync(
+            await _k8SClient.CoreV1.DeleteNamespacedPodAsync(
                 name: pod.Name(),
                 namespaceParameter: pod.Namespace());
 
@@ -365,14 +451,14 @@
 
 
     // style the rows where the Element.Position == 0 to have italic text.
-    private Func<V1Pod, int, string> _rowStyleFunc => (x, i) =>
+    private Func<V1Pod, int, string> RowStyleFunc => (x, i) =>
     {
         return "font-style:italic";
 
     };
 
     // style the cells according to the element's physical classification and the molar mass.
-    private Func<V1Pod, string> _cellStyleFunc => x =>
+    private Func<V1Pod, string> CellStyleFunc => x =>
     {
         return "padding: 2px; margin: 1px";
     };
@@ -383,7 +469,7 @@
     {
         if (!_rowConnectionTypes.ContainsKey(podName))
         {
-            _rowConnectionTypes[podName] = Utils.K8sConnectionType.BASH; // Default value
+            _rowConnectionTypes[podName] = Utils.K8SConnectionType.Bash; // Default value
         }
         return _rowConnectionTypes[podName];
     }
@@ -411,7 +497,7 @@
         {
             
             // Step 1: Get the initial list of pods
-            var initialPodList = await _k8sClient.CoreV1.ListNamespacedPodAsync(
+            var initialPodList = await _k8SClient.CoreV1.ListNamespacedPodAsync(
                 namespaceName,
                 cancellationToken: _cancellationTokenSource.Token
             );
@@ -427,7 +513,7 @@
             StateHasChanged();
 
             // Step 2: Watch for changes to the pods
-            using var watch = await _k8sClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
+            using var watch = await _k8SClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
                 namespaceName,
                 watch: true,
                 cancellationToken: _cancellationTokenSource.Token 
@@ -524,7 +610,7 @@
     {
         public string Label { get; set; }
         //public string Content { get; set; }
-        public RenderFragment K8sTerminalFragment { get; set; }
+        public RenderFragment K8STerminalFragment { get; set; }
         public Guid Id { get; set; }
         public bool ShowCloseIcon { get; set; } = false;
     }
@@ -536,8 +622,8 @@
         {
             try
             {
-                K8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-                _k8sClient = new Kubernetes(K8sConfig);
+                _k8SConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+                _k8SClient = new Kubernetes(_k8SConfig);
 
                 await LoadPodsAndWatchAsync();
             }
@@ -546,7 +632,7 @@
             {
                 ShowKubernetesErrorDialog(e.Message);
                 _podsLoading = false;
-                _k8sError = true;
+                _k8SError = true;
                 StateHasChanged(); //def need this!
             }
         }
@@ -575,7 +661,7 @@
                 {
                     Id = Guid.NewGuid(),
                     Label = $"Welcome",
-                    K8sTerminalFragment = builder =>
+                    K8STerminalFragment = builder =>
                     {
                         builder.OpenComponent<WelcomeTerminal>(0);
                         builder.CloseComponent();
@@ -594,11 +680,11 @@
             {
                 Id = Guid.NewGuid(),
                 Label = $"{podName}",
-                K8sTerminalFragment = builder =>
+                K8STerminalFragment = builder =>
                 {
                     builder.OpenComponent<KubernetesTerminal>(0);
                     builder.AddAttribute(1, "PodName", podName);
-                    builder.AddComponentParameter(2, "K8sContext", _k8sClient);
+                    builder.AddComponentParameter(2, "K8sContext", _k8SClient);
                     builder.AddComponentParameter(3, "ConnectionType", connectionType);
                     builder.AddComponentParameter(4, "Command", _cmd.Trim().Split(" "));
                     builder.CloseComponent();

@@ -1,12 +1,12 @@
 ﻿namespace Blazor.KubeXTerm.Utils
 {
-    public class K8sConnectionType
+    public class K8SConnectionType
     {
-        public static string STDERR = "StdErr";
-        public static string STDOUT = "StdOut";
-        public static string BASH = "Bash";
-        public static string LOGS = "Logs";
-        public static string SH = "SH";
-        public static string ALLLOGS = "All Logs";
+        public static string Stderr = "StdErr";
+        public static string Stdout = "StdOut";
+        public static string Bash = "Bash";
+        public static string Logs = "Logs";
+        public static string Sh = "SH";
+        public static string Alllogs = "All Logs";
     }
 }
