@@ -1,13 +1,10 @@
-﻿@using System.Net.WebSockets
-@using System.Text
-@using System.Text.Json
-@using XtermBlazor
+﻿@using XtermBlazor
 @using k8s
 @using Utils
 @using KubeXTerm.Services
 
 @implements IAsyncDisposable
-@inject IJSRuntime JSRuntime
+@inject IJSRuntime JsRuntime
 
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -15,8 +12,8 @@
     <div style="height: calc(100vh - 195px); width: 100%">
         @* Adjust for header/footer size *@
         <Xterm OnData="@WriteToTerminal"
-        Addons="Addons"
-        @ref="Term"
+        Addons="_addons"
+        @ref="_term"
         Options="_options"
         OnFirstRender="@OnFirstRender"
         Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
@@ -28,7 +25,6 @@
 
 @code 
 {
-
     [Parameter]
     public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] 
@@ -36,27 +32,27 @@
     [Parameter]
     public string? ContainerName { get; set; }
     [Parameter, EditorRequired]
-    public required IKubernetes K8sContext { get; set; }
+    public required IKubernetes K8SContext { get; set; }
     [Parameter, EditorRequired]
     public required string ConnectionType {get; set;}
     [Parameter]
-    public string[] Command { get; set; } = new[]
-        {
-            "/bin/bash"
-        };
+    public string[] Command { get; set; } =
+    [
+        "/bin/bash"
+    ];
 
     //The main Xterm Object
-    private Xterm Term;
-    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
-    KubeXTermConnectionManager KubeExecutor;
+    private Xterm _term;
+    private readonly HashSet<string> _addons = ["addon-fit"];
+    private KubeXTermConnectionManager _kubeExecutor;
     private TerminalOptions _options;
 
     //Change to take a parameter at some point - ideally would be an uploaded file? 
     // For now default config works if running in k8s oro  using docker desktop kubernetes.
-    KubernetesClientConfiguration k8sConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+    KubernetesClientConfiguration _k8SConfig = KubernetesClientConfiguration.BuildDefaultConfig();
 
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    private DotNetObjectReference<KubernetesTerminal> dotNetObjectReference;
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+    private DotNetObjectReference<KubernetesTerminal> _dotNetObjectReference;
 
     /// <summary>
     /// Tracks the Viewport width for resize events.
@@ -73,13 +69,13 @@
     /// </summary>
     protected override void OnParametersSet()
     {
-        bool _convertEOL = false;
-        bool _disableStdin = false;
+        bool convertEol = false;
+        bool disableStdin = false;
         // Update _options based on ConnectionType
-        if (ConnectionType != K8sConnectionType.BASH)
+        if (ConnectionType != K8SConnectionType.Bash)
         {
-            _disableStdin = true;
-            _convertEOL = true;
+            disableStdin = true;
+            convertEol = true;
         }
 
         _options = new TerminalOptions
@@ -87,8 +83,8 @@
                 CursorBlink = true,
                 CursorStyle = CursorStyle.Bar,
                 FontFamily = "monospace",
-                ConvertEOL = _convertEOL,
-                DisableStdin = _disableStdin,
+                ConvertEOL = convertEol,
+                DisableStdin = disableStdin,
 
                 Theme =
             {
@@ -126,8 +122,8 @@
         try{
             if (firstRender)
             {
-                dotNetObjectReference = DotNetObjectReference.Create(this);
-                await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
+                _dotNetObjectReference = DotNetObjectReference.Create(this);
+                await JsRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", _dotNetObjectReference);
             }
 
             await SendResize();
@@ -145,11 +141,11 @@
     /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task SendResize()
     {
-        if (KubeExecutor != null)
+        if (_kubeExecutor != null)
         {
-            int rows = await Term.GetRows();
-            int cols = await Term.GetColumns();
-            await KubeExecutor.SendResizeCommandAsync(rows, cols);
+            int rows = await _term.GetRows();
+            int cols = await _term.GetColumns();
+            await _kubeExecutor.SendResizeCommandAsync(rows, cols);
         }
     }
 
@@ -160,10 +156,10 @@
     private async Task OnFirstRender()
     {
         //Initialize the kubernetes executor
-        KubeExecutor = new KubeXTermConnectionManager(Term, K8sContext, Namespace);
+        _kubeExecutor = new KubeXTermConnectionManager(_term, K8SContext, Namespace);
         await FitTerminal();
 
-        if(ConnectionType != K8sConnectionType.BASH)
+        if(ConnectionType != K8SConnectionType.Bash)
         {
             _options.DisableStdin = true;
             _options.ConvertEOL = true;
@@ -181,7 +177,7 @@
     private async Task FitTerminal()
     {
         //Tell the javacript XTerm to fit the container
-        await Term.Addon("addon-fit").InvokeVoidAsync("fit");
+        await _term.Addon("addon-fit").InvokeVoidAsync("fit");
 
         //Tell websocket in kubernetes about the resize
         await SendResize();
@@ -195,21 +191,21 @@
     {
         try
         {
-            if (ConnectionType == K8sConnectionType.BASH)
-                await KubeExecutor.ExecInPod(PodName, ContainerName, Command);
-            else if (ConnectionType == K8sConnectionType.STDOUT)
-                await KubeExecutor.StdOutInPod(PodName, ContainerName);
-            else if (ConnectionType == K8sConnectionType.LOGS)
-                await KubeExecutor.LogsInPodAync(PodName, ContainerName);
-            else if (ConnectionType == K8sConnectionType.STDERR)
-                await KubeExecutor.StdErrInPod(PodName, ContainerName);
-            else if (ConnectionType == K8sConnectionType.ALLLOGS)
-                await KubeExecutor.AllLogsAsync(PodName, ContainerName);
+            if (ConnectionType == K8SConnectionType.Bash)
+                await _kubeExecutor.ExecInPod(PodName, ContainerName, Command);
+            else if (ConnectionType == K8SConnectionType.Stdout)
+                await _kubeExecutor.StdOutInPod(PodName, ContainerName);
+            else if (ConnectionType == K8SConnectionType.Logs)
+                await _kubeExecutor.LogsInPodAync(PodName, ContainerName);
+            else if (ConnectionType == K8SConnectionType.Stderr)
+                await _kubeExecutor.StdErrInPod(PodName, ContainerName);
+            else if (ConnectionType == K8SConnectionType.Alllogs)
+                await _kubeExecutor.AllLogsAsync(PodName, ContainerName);
         }
         catch (Exception e)
         {
             Console.WriteLine($"Error in StartTerminalConnection: {e.Message}");
-            Term.WriteLine("Unable to initiate terminal connection.");
+            _term.WriteLine("Unable to initiate terminal connection.");
         }
     }
 
@@ -220,7 +216,7 @@
     /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task WriteToTerminal(string data)
     {
-        await KubeExecutor.WriteStream(data);
+        await _kubeExecutor.WriteStream(data);
     }
 
     /// <summary>
@@ -232,13 +228,13 @@
         try
         {
                 // Dispose of JSInterop callbacks
-            if (dotNetObjectReference != null)
+            if (_dotNetObjectReference != null)
             {
-                dotNetObjectReference.Dispose();
-                await JSRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
+                _dotNetObjectReference.Dispose();
+                await JsRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
             }
             // Dispose of the KubeExecutor resource
-            KubeExecutor?.DisposeAsync();
+            _kubeExecutor?.DisposeAsync();
         }
         catch (Exception ex)
         {

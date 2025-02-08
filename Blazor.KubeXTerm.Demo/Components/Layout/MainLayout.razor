@@ -50,13 +50,9 @@
     private bool _discoBallIsMoving = true;
     private int _discoAlerts = 1;
 
-    private async Task ToggleDiscoBallMotion(){
-        if(_discoBallIsMoving){
-            _discoBallIsMoving = false;
-        }
-        else{
-            _discoBallIsMoving = true;
-        }
+    private async Task ToggleDiscoBallMotion()
+    {
+        _discoBallIsMoving = !_discoBallIsMoving;
     }
 
     protected override void OnInitialized()
@@ -73,17 +69,17 @@
             },
             Typography = new Typography()
             {
-                Default = new Default
+                Default = new DefaultTypography()
                 {
                     FontFamily = [ "IBM Plex Mono", "monospace"]
                 },
-                H1 = new H1
+                H1 = new H1Typography()
                 {
                     FontFamily =  [ "IBM Plex Mono", "monospace"],
                     FontSize = "2rem",
-                    FontWeight = 500
+                    FontWeight = "500"
                 },
-                Body1 = new Body1
+                Body1 = new Body1Typography()
                 {
                     FontFamily =  [ "IBM Plex Mono", "monospace"]
                 }
@@ -116,18 +112,18 @@
 
     private readonly PaletteDark _darkPalette = new()
     {
-            Primary = "#3190c6",
-            Surface = "#141414",
-            Background = "#000000",
+        Primary = "#3190c6",
+        Surface = "#141414",
+        Background = "#000000",
         BackgroundGray = "#151521",
         AppbarText = "#92929f",
-            AppbarBackground = "#000000",
-            DrawerBackground = "#000000",
+        AppbarBackground = "#000000",
+        DrawerBackground = "#000000",
         ActionDefault = "#74718e",
         ActionDisabled = "#9999994d",
         ActionDisabledBackground = "#605f6d4d",
-            TextPrimary = "#7c7e85",
-            TextSecondary = "#92929f",
+        TextPrimary = "#7c7e85",
+        TextSecondary = "#92929f",
         TextDisabled = "#ffffff33",
         DrawerIcon = "#92929f",
         DrawerText = "#92929f",
@@ -143,7 +139,7 @@
         OverlayLight = "#1e1e2d80",
     };
 
-    public string DarkLightModeButtonIcon => _isDarkMode switch
+    private string DarkLightModeButtonIcon => _isDarkMode switch
     {
         true => Icons.Material.Rounded.AutoMode,
         false => Icons.Material.Outlined.DarkMode,

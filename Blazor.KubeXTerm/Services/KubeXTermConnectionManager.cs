@@ -9,20 +9,20 @@ namespace Blazor.KubeXTerm.Services
 {
     internal class KubeXTermConnectionManager : IAsyncDisposable
     {
-        private IKubernetes K8sContext;
-        private string Namespace = "default";
-        public Xterm webTerminal;
-        private Stream stdinStream;
-        WebSocket webSocket;
+        private IKubernetes _k8SContext;
+        private string _namespace = "default";
+        public Xterm WebTerminal;
+        private Stream _stdinStream;
+        WebSocket _webSocket;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private bool disposedValue;
+        private bool _disposedValue;
 
 
-        public KubeXTermConnectionManager(Xterm term, IKubernetes k8sContext, string @namespace)
+        public KubeXTermConnectionManager(Xterm term, IKubernetes k8SContext, string @namespace)
         {
-            webTerminal = term;
-            this.K8sContext = k8sContext;
-            Namespace = @namespace;
+            WebTerminal = term;
+            this._k8SContext = k8SContext;
+            _namespace = @namespace;
         }
 
 
@@ -38,7 +38,7 @@ namespace Blazor.KubeXTerm.Services
         {
             try
             {
-                if (webSocket != null && webSocket.State == WebSocketState.Open)
+                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
                 {
                     // Kubernetes expects JSON payload for resize
                     var resizePayload = new
@@ -56,7 +56,7 @@ namespace Blazor.KubeXTerm.Services
                     Encoding.UTF8.GetBytes(jsonPayload, 0, jsonPayload.Length, message, 1);
 
                     // Send the message as a binary frame
-                    await webSocket.SendAsync(
+                    await _webSocket.SendAsync(
                         new ArraySegment<byte>(message),
                         WebSocketMessageType.Binary,
                         true,
@@ -79,9 +79,9 @@ namespace Blazor.KubeXTerm.Services
         public async Task ExecInPod(string podname, string containerName, string[] cmd)
         {
             //var cmd = new[] { "/bin/bash" }; // Use an interactive shell for command execution
-            webSocket = await K8sContext.WebSocketNamespacedPodExecAsync(
+            _webSocket = await _k8SContext.WebSocketNamespacedPodExecAsync(
                 name: podname,
-                @namespace: Namespace,
+                @namespace: _namespace,
                 container: containerName,
                 command: cmd,
                 stderr: true,
@@ -91,12 +91,12 @@ namespace Blazor.KubeXTerm.Services
 
             ).ConfigureAwait(false);
 
-            var demux = new StreamDemuxer(webSocket);
+            var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
             // Get stdin, stdout, and stderr streams
             byte stdinIndex = 0;
-            stdinStream = demux.GetStream(stdinIndex, stdinIndex); // Stdin channel
+            _stdinStream = demux.GetStream(stdinIndex, stdinIndex); // Stdin channel
             var stdoutStream = demux.GetStream(1, 1); // Stdout channel
             var stderrStream = demux.GetStream(2, 2); // Stderr channel
 
@@ -107,10 +107,10 @@ namespace Blazor.KubeXTerm.Services
             // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask, stderrTask).ConfigureAwait(false);
 
-            if (!disposedValue)
+            if (!_disposedValue)
                 try
                 {
-                    await webTerminal.WriteLine("WebSocket connection closed.");
+                    await WebTerminal.WriteLine("WebSocket connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -124,9 +124,9 @@ namespace Blazor.KubeXTerm.Services
         /// <returns></returns>
         public async Task StdOutInPod(string podname, string containerName)
         {
-            webSocket = await K8sContext.WebSocketNamespacedPodAttachAsync(
+            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname,
-                @namespace: Namespace,
+                @namespace: _namespace,
                 container: containerName,
                 stderr: false,
                 stdin: false,
@@ -135,7 +135,7 @@ namespace Blazor.KubeXTerm.Services
 
             ).ConfigureAwait(false);
 
-            var demux = new StreamDemuxer(webSocket);
+            var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
             // Get stdin
@@ -147,10 +147,10 @@ namespace Blazor.KubeXTerm.Services
             // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask).ConfigureAwait(false);
 
-            if (!disposedValue)
+            if (!_disposedValue)
                 try
                 {
-                    await webTerminal.WriteLine("WebSocket connection closed.");
+                    await WebTerminal.WriteLine("WebSocket connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -166,9 +166,9 @@ namespace Blazor.KubeXTerm.Services
         /// <returns></returns>
         public async Task StdErrInPod(string podname, string containerName)
         {
-            webSocket = await K8sContext.WebSocketNamespacedPodAttachAsync(
+            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname,
-                @namespace: Namespace,
+                @namespace: _namespace,
                 container: containerName,
                 stderr: true,
                 stdin: false,
@@ -177,7 +177,7 @@ namespace Blazor.KubeXTerm.Services
 
             ).ConfigureAwait(false);
 
-            var demux = new StreamDemuxer(webSocket);
+            var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
             // Get stdin
@@ -189,10 +189,10 @@ namespace Blazor.KubeXTerm.Services
             // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask).ConfigureAwait(false);
 
-            if (!disposedValue)
+            if (!_disposedValue)
                 try
                 {
-                    await webTerminal.WriteLine("WebSocket connection closed.");
+                    await WebTerminal.WriteLine("WebSocket connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -208,7 +208,7 @@ namespace Blazor.KubeXTerm.Services
         /// <returns></returns>
         public async Task AllLogsAsync(string podname, string containerName)
         {
-            var taskStream = K8sContext.CoreV1.ReadNamespacedPodLogAsync(podname, Namespace, follow: true);
+            var taskStream = _k8SContext.CoreV1.ReadNamespacedPodLogAsync(podname, _namespace, follow: true);
 
             // Await the task to get the actual stream
             Stream logStream = await taskStream;
@@ -219,10 +219,10 @@ namespace Blazor.KubeXTerm.Services
             // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(logTask).ConfigureAwait(false);
 
-            if (!disposedValue)
+            if (!_disposedValue)
                 try
                 {
-                    await webTerminal.WriteLine("WebSocket connection closed.");
+                    await WebTerminal.WriteLine("WebSocket connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -238,9 +238,9 @@ namespace Blazor.KubeXTerm.Services
         public async Task LogsInPodAync(string podname, string containerName)
         {
 
-            webSocket = await K8sContext.WebSocketNamespacedPodAttachAsync(
+            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname,
-                @namespace: Namespace,
+                @namespace: _namespace,
                 container: containerName,
                 stderr: true,
                 stdin: false,
@@ -249,7 +249,7 @@ namespace Blazor.KubeXTerm.Services
 
             ).ConfigureAwait(false);
 
-            var demux = new StreamDemuxer(webSocket);
+            var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
             // Get stdin, stdout, and stderr streams
@@ -263,10 +263,10 @@ namespace Blazor.KubeXTerm.Services
             // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask, stderrTask).ConfigureAwait(false);
 
-            if (!disposedValue)
+            if (!_disposedValue)
                 try
                 {
-                    await webTerminal.WriteLine("WebSocket connection closed.");
+                    await WebTerminal.WriteLine("WebSocket connection closed.");
                 }
                 catch (Exception e)
                 {
@@ -285,12 +285,12 @@ namespace Blazor.KubeXTerm.Services
             {
                 // Write input to the stdin stream
                 var inputBytes = Encoding.UTF8.GetBytes(input);
-                await stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
-                await stdinStream.FlushAsync().ConfigureAwait(false);
+                await _stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
+                await _stdinStream.FlushAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                await webTerminal.WriteLine($"Error writing to stream: {ex.Message}");
+                await WebTerminal.WriteLine($"Error writing to stream: {ex.Message}");
 
             }
         }
@@ -305,14 +305,14 @@ namespace Blazor.KubeXTerm.Services
             try
             {
                 // Write input to the stdin stream, if sdin is null, we are just looking at logs
-                if (stdinStream == null)
+                if (_stdinStream == null)
                     return;
-                stdinStream.WriteByte(b);
-                await stdinStream.FlushAsync().ConfigureAwait(false);
+                _stdinStream.WriteByte(b);
+                await _stdinStream.FlushAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                await webTerminal.WriteLine($"Error writing byte to stream: {ex.Message}");
+                await WebTerminal.WriteLine($"Error writing byte to stream: {ex.Message}");
 
             }
         }
@@ -324,10 +324,10 @@ namespace Blazor.KubeXTerm.Services
         public async Task CloseStreams()
         {
             //TODO test if streams are open first?
-            stdinStream?.Close();
-            stdinStream?.Dispose();
-            webSocket?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token);
-            webSocket?.Dispose();
+            _stdinStream?.Close();
+            _stdinStream?.Dispose();
+            _webSocket?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token);
+            _webSocket?.Dispose();
         }
 
         /// <summary>
@@ -350,11 +350,11 @@ namespace Blazor.KubeXTerm.Services
                     }
 
                     var outputText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    await webTerminal.Write(outputText);
+                    await WebTerminal.Write(outputText);
                 }
                 catch (Exception ex)
                 {
-                    await webTerminal.WriteLine($"Error reading stream: {ex.Message}");
+                    await WebTerminal.WriteLine($"Error reading stream: {ex.Message}");
                     break;
                 }
             }
@@ -367,7 +367,7 @@ namespace Blazor.KubeXTerm.Services
         /// <returns></returns>
         public async ValueTask DisposeAsync()
         {
-            if (!disposedValue)
+            if (!_disposedValue)
             {
                 try
                 {
@@ -376,7 +376,7 @@ namespace Blazor.KubeXTerm.Services
                     //await WriteByte(0x03); // Ctrl+C (SIGINT)
                     // Send Ctrl+D (EOF) to simulate EOF or exit signal
                     //await WriteByte(0x04); // Ctrl+D (EOF)
-                    disposedValue = true;
+                    _disposedValue = true;
                 }
                 catch (Exception ex)
                 {
@@ -385,7 +385,7 @@ namespace Blazor.KubeXTerm.Services
                 }
                 finally
                 {
-                    disposedValue = true;
+                    _disposedValue = true;
                     await CloseStreams();
                 }
             }

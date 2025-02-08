@@ -15,7 +15,7 @@
 
 <MudGrid Spacing="2">
     <MudItem xs="4">
-        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
+        <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
             <MudGrid Spacing="2">
                 <MudItem xs="12">
                     <MudPaper Class="ma-2 pa-2">
@@ -179,22 +179,22 @@
                                                 <CellTemplate>
                                                     <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.BASH))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
                                                             @($"Exec Shell")
                                                         </MudMenuItem>
-                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.ALLLOGS))">
+                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
                                                             @($"All logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.LOGS))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
                                                             @($"Current logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDOUT))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
                                                             @($"stdout logs")
                                                         </MudMenuItem>
                                                         <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8sConnectionType.STDERR))">
+                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
                                                             @($"stderr logs")
                                                         </MudMenuItem>
                                                     </MudMenu>
@@ -252,7 +252,7 @@
         </MudPaper>
     </MudItem>
     <MudItem xs="8">
-        <MudPaper Class="ma-1 pa-1" Style="height: 100%">
+        <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
             <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
             PanelClass="border-radius-bottom"
             TabHeaderClass="border-radius-top"
@@ -283,7 +283,7 @@
 
 @code {
     
-    private string _connectionTypeSelected = Utils.K8sConnectionType.BASH;
+    private string _connectionTypeSelected = Utils.K8SConnectionType.Bash;
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
     private CancellationTokenSource _cancellationTokenSource = new();
@@ -469,7 +469,7 @@
     {
         if (!_rowConnectionTypes.ContainsKey(podName))
         {
-            _rowConnectionTypes[podName] = Utils.K8sConnectionType.BASH; // Default value
+            _rowConnectionTypes[podName] = Utils.K8SConnectionType.Bash; // Default value
         }
         return _rowConnectionTypes[podName];
     }

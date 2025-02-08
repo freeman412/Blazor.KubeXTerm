@@ -1,32 +1,34 @@
 ﻿@using XtermBlazor
 @implements IAsyncDisposable
-@inject IJSRuntime JSRuntime
+@inject IJSRuntime JsRuntime
 
-<div style="max-width: 100% !important; padding: 10px" class="overflow-hidden">
-    <div style="height: calc(100vh - 195px); width: 100%">
+<div style="background-color: #282a36; margin-left: 10px;
+    border-radius: 10px;
+    margin-right: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;" class="overflow-hidden">
         @* Adjust for header/footer size *@
         <Xterm
-            Addons="Addons"
-            @ref="Term"
+            Addons="_addons"
+            @ref="_term"
             Options="_options"
             OnFirstRender="@OnFirstRender"
-            Style="padding: 10px; background-color: #282a36; height: 100%; width: 100%;"
-            Class="rounded-lg" 
+            Style="padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px"
             OnRender="FitTerminal"
             OnKey="OnTerminalKey" />
-        </div>
 </div>
 
 @code{
 
     //The main Xterm Object
-    private Xterm Term;
+    private Xterm _term;
     private TerminalOptions _options = new TerminalOptions
         {
             CursorBlink = true,
             CursorStyle = CursorStyle.Bar,
             FontFamily = "IBM Plex Mono",
             DisableStdin = false,
+            
 
             Theme =
             {
@@ -34,9 +36,9 @@
                 Foreground = "#bacfc7"
             },
         };
-    private readonly HashSet<string> Addons = new HashSet<string> { "addon-fit" };
-    private DotNetObjectReference<WelcomeTerminal> dotNetObjectReference;
-    private bool isWelcoming = true;
+    private readonly HashSet<string> _addons = new HashSet<string> { "addon-fit" };
+    private DotNetObjectReference<WelcomeTerminal> _dotNetObjectReference;
+    private bool _isWelcoming = true;
 
     /// <summary>
     /// Tracks the Viewport width for resize events
@@ -51,8 +53,8 @@
     {
         if (firstRender)
         {
-            dotNetObjectReference = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", dotNetObjectReference);
+            _dotNetObjectReference = DotNetObjectReference.Create(this);
+            await JsRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", _dotNetObjectReference);
         }
 
     }
@@ -82,20 +84,20 @@
     {
         try{
             await FitTerminal();
-            await Term.Write("root@welcomeTerminal: ");
+            await _term.Write("root@welcomeTerminal: ");
             await Task.Delay(1200);
             await SimulateTyping("./initialize.sh");
-            await Term.Write("\n");
+            await _term.Write("\n");
 
             // Simulated typing speed
             async Task SimulateTyping(string message, int delay = 50)
             {
                 foreach (var character in message)
                 {
-                    Term.Write(character.ToString());
+                    _term.Write(character.ToString());
                     await Task.Delay(delay);
                 }
-                Term.WriteLine(""); // Newline at the end of the message
+                _term.WriteLine(""); // Newline at the end of the message
             }
 
             // Fake welcome script
@@ -111,15 +113,15 @@
                 await Task.Delay(500);
                 await SimulateTyping("Running startup checks...");
                 await Task.Delay(1000);
-                await Term.WriteLine("All systems operational.");
+                await _term.WriteLine("All systems operational.");
                 await Task.Delay(500);
                 await SimulateTyping($@"You're all set! Open a new tab from the pod table to get started. Type ""help"" for additional help.");
-                await Term.WriteLine("");
-                await Term.Write("root@welcomeTerminal: ");
+                await _term.WriteLine("");
+                await _term.Write("root@welcomeTerminal: ");
             }
 
             await ExecuteWelcomeScript();
-            isWelcoming = false;
+            _isWelcoming = false;
         }
         catch (Exception e)
         {
@@ -130,39 +132,39 @@
 
     private async Task HelpCommand()
     {
-        await Term.Write("\nHelp is displayed here\n");
+        await _term.Write("\nHelp is displayed here\n");
     }
 
-    private string commandBuffer = "";
+    private string _commandBuffer = "";
     private async Task OnTerminalKey(KeyEventArgs e)
     {
-        if (isWelcoming)
+        if (_isWelcoming)
             return;
-        commandBuffer += e.Key;
-        await Term.Write(e.Key);
+        _commandBuffer += e.Key;
+        await _term.Write(e.Key);
         if(e.Key == "\r")
         {
-            if (commandBuffer == "help\r")
+            if (_commandBuffer == "help\r")
             {
                 await HelpCommand();
             }
-            else if (commandBuffer == "\r")
+            else if (_commandBuffer == "\r")
             {
                 
             }
             else{
-                await Term.WriteLine("\nBad Command! Type \"help\" for additional help");
+                await _term.WriteLine("\nBad Command! Type \"help\" for additional help");
             }
-            commandBuffer = "";
-            await Term.WriteLine("");
-            await Term.Write("root@welcomeTerminal: ");
+            _commandBuffer = "";
+            await _term.WriteLine("");
+            await _term.Write("root@welcomeTerminal: ");
         }
     }
 
     private async Task FitTerminal()
     {
         //Tell the javacript XTerm to fit the container
-        await Term.Addon("addon-fit").InvokeVoidAsync("fit");    
+        await _term.Addon("addon-fit").InvokeVoidAsync("fit");    
     }
 
 
@@ -171,10 +173,10 @@
         try
         {
             // Dispose of JSInterop callbacks
-            if (dotNetObjectReference != null)
+            if (_dotNetObjectReference != null)
             {
-                dotNetObjectReference.Dispose();
-                await JSRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
+                _dotNetObjectReference.Dispose();
+                await JsRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
             }
 
         }

@@ -1,21 +1,21 @@
 ﻿@namespace MudBlazor.KubeXTerm.Components
 
 <div class="cursor-container">
-    <div class="text-output">@DisplayedText<span class="cursor" style="left: @CursorPosition%;"></span></div>
+    <div class="text-output">@_displayedText<span class="cursor" style="left: @_cursorPosition%;"></span></div>
 </div>
 
 @code {
-    private double CursorPosition = 0;
-    private string FullText = "  Hello World!";
-    private string DisplayedText = "";
-    private int CurrentCharIndex = 0;
+    private double _cursorPosition = 0;
+    private string _fullText = "  Hello World!";
+    private string _displayedText = "";
+    private int _currentCharIndex = 0;
 
     private const double MovementStep = 5; // Speed of cursor movement
     private const int TypingInterval = 300; // Time (ms) between each character being typed
     private const int PauseDuration = 3000; // Time (ms) to pause before restarting
 
-    private bool IsPaused = false;
-    private bool IsTyping = true;
+    private bool _isPaused = false;
+    private bool _isTyping = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -25,23 +25,23 @@
 
     private async Task TypeTextAsync()
     {
-        while (IsTyping)
+        while (_isTyping)
         {
-            if (IsPaused)
+            if (_isPaused)
             {
                 // If paused, delay for the pause duration
                 await Task.Delay(PauseDuration);
-                IsPaused = false;
+                _isPaused = false;
             }
 
-            if (CurrentCharIndex < FullText.Length)
+            if (_currentCharIndex < _fullText.Length)
             {
                 // Add the next character to the displayed text
-                DisplayedText += FullText[CurrentCharIndex];
-                CurrentCharIndex++;
+                _displayedText += _fullText[_currentCharIndex];
+                _currentCharIndex++;
 
                 // Update cursor position relative to the text length
-                CursorPosition = CurrentCharIndex * 10; // Adjust multiplier for spacing
+                _cursorPosition = _currentCharIndex * 10; // Adjust multiplier for spacing
             }
             else
             {
