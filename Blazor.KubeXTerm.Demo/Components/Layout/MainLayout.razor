@@ -1,6 +1,8 @@
 ﻿@using Blazor.DiscoBall.Components
 @inherits LayoutComponentBase
 
+@using Microsoft.AspNetCore.Components.Authorization
+
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -14,6 +16,35 @@
         <BlinkingCursor />
 
         <MudSpacer />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mr-3">
+                    <MudNavLink Match="NavLinkMatch.Prefix" Class="ml-3" Href="user"
+                                Style="white-space: nowrap;">
+                        @context.User.Identity?.Name
+                    </MudNavLink>
+                    <form action="logout" method="post" style="margin-right: 10px; margin-left: 10px">
+                        <AntiforgeryToken />
+                        <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" 
+                                   Variant="Variant.Outlined">
+                            <MudIcon Icon="@Icons.Material.Filled.ExitToApp" Class="mr-1" />
+                            Logout
+                        </MudButton>
+                    </form>
+                </MudStack>
+            </Authorized>
+            <NotAuthorized>
+                <form action="login" method="post" style="margin-right: 10px; margin-left: 10px">
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary"
+                               Variant="Variant.Outlined">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Class="mr-1" />
+                        Login
+                    </MudButton>
+                </form>
+            </NotAuthorized>
+        </AuthorizeView>
+
         <MudItem Class="pr-2">
             <MudBadge Visible="@(_discoAlerts > 0)" Content="@_discoAlerts" Color="Color.Error" Overlap="true" Class="mx-2 my-2">
                 <button onclick="@ToggleDiscoBallMotion"><DiscoBall @ref=_discoBall Radius="18" IsColorful="@(_discoAlerts > 0)" Motion="@_discoBallIsMoving" /></button>
@@ -40,9 +71,7 @@
 
 @code 
 {
-
-
-    private bool _drawerOpen = true;
+    private bool _drawerOpen = false;
     private bool _isDarkMode = true;
     private MudTheme? _theme = null;
 

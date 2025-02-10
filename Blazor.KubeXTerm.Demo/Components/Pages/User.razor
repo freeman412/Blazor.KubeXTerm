@@ -1,0 +1,38 @@
+﻿@page "/user"
+
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IHttpContextAccessor HttpContextAccessor
+
+<h3>User</h3>
+
+<h2>Parsed Claims</h2>
+<AuthorizeView>
+    <Authorized>
+        <div class="text-break">
+            @((MarkupString)@context.User.Claims.Aggregate("", (s, claim) => s += "<br />" + claim )["<br />".Length..])
+        </div>
+        <ul>
+            @foreach (var role in @context.User.Claims.Where(c => c.Type == "role").Select(c => c.Value))
+            {
+                <li>@role</li>
+            }
+        </ul>
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView  Roles="KubeXAdmin">
+    <Authorized>
+        <MudText>You are a KubeXAdmin! Welcome!</MudText>
+    </Authorized>
+    <NotAuthorized>
+        <MudText>You are not Admin!</MudText>
+    </NotAuthorized>
+</AuthorizeView>
+
+<h2>Raw Token</h2>
+<p class="text-break">@HttpContextAccessor.HttpContext!.GetTokenAsync("access_token").Result</p>
+
+@code {
+    
+}

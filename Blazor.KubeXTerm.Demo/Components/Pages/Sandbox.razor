@@ -7,279 +7,291 @@
 @using k8s.Models;
 @using Blazor.KubeXTerm.Utils
 @using Blazor.KubeXTerm.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
 
 @implements IAsyncDisposable
 
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@attribute [Authorize]
 
-<MudGrid Spacing="2">
-    <MudItem xs="4">
-        <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
-            <MudGrid Spacing="2">
-                <MudItem xs="12">
-                    <MudPaper Class="ma-2 pa-2">
-                        <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
-                            <MudGrid>
-                                <MudItem xs="12">
-                                    <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
-                                </MudItem>
-                                <!-- Pod Name -->
-                                <MudItem xs="6">
-                                    <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true" />
-                                </MudItem>
-                                <!-- Container Name -->
-                                <MudItem xs="6">
-                                    <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false" />
-                                </MudItem>
-                                <!-- Container Image -->
-                                <MudItem xs="6">
-                                    <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true" />
-                                </MudItem>
-                                <!-- Image Pull Policy -->
-                                <MudItem xs="6">
-                                    <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
-                                        <MudSelectItem Value="@("Always")">Always</MudSelectItem>
-                                        <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
-                                        <MudSelectItem Value="@("Never")">Never</MudSelectItem>
-                                    </MudSelect>
-                                </MudItem>
-                                <!-- Image Pull Secret -->
-                                <MudItem xs="6">
-                                    <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret" />
-                                </MudItem>
-                                <MudItem xs="12" Class="mt-2">
-                                    <MudGrid>
-                                        <MudItem xs="6">
-                                            <MudText Typo="Typo.h6">Environment Variables</MudText>
-                                            </MudItem>
-                                        <MudItem xs="6">                                                               
-                                            <MudIconButton
-                                                Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                                Color="Color.Primary" 
-                                                OnClick="@(() => AddEnvVar())" 
-                                                />
-                                            </MudItem>    
-                                    </MudGrid>
-                                 </MudItem>
-                                <MudItem xs="12">
-                                   
-                                    <MudTable Items="_envVars" Bordered="false" Dense="true" >
-                                        <HeaderContent>
-                                            <MudTh>Name</MudTh>
-                                            <MudTh>Value</MudTh>
-                                            <MudTh></MudTh>
-                                        </HeaderContent>
-                                        <RowTemplate>
-                                            <MudTd>
-                                                <MudTextField  @bind-Value="context.Name" Placeholder="Enter name" />
-                                            </MudTd>
-                                            <MudTd>
-                                                <MudTextField @bind-Value="context.Value" Placeholder="Enter value" />
-                                            </MudTd>
-                                            <MudTd>
-                                                <MudGrid>
-                                                    <MudItem xs="6">
-
-                                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                                        Size="Size.Small"
-                                                        Color="Color.Error" 
-                                                        OnClick="@(() => DeleteEnvVar(context))" >
-                                                        </MudIconButton></MudItem></MudGrid>
-                                            </MudTd>
-                                        </RowTemplate>
-                                    </MudTable>
-                                </MudItem>
-
-                                <!-- Submit Button -->
-                                <MudItem xs="12">
-                                    <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
-                                        Request Resource
-                                    </MudButton>
-                                </MudItem>
-                            </MudGrid>
-                        </MudForm>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12">
-                    <MudPaper Class="ma-2">
-                        <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
-
-                        </MudTextField>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="12">
-                    <MudPaper Class="ma-2">
+<AuthorizeView Context="AuthViewContext">
+    <Authorized>
+        <MudGrid Spacing="2">
+            <MudItem xs="4">
+                <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
+                    <MudGrid Spacing="2">
                         <MudItem xs="12">
-                            @if (_k8SError)
-                            {
-                                <MudText Class="ma-4">
-                                    Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
-                                </MudText>
-                            }
-                            else
-                            {
-                                if(_watching)
-                                {
-                                    <MudDataGrid Items="@_podList"
-                                    T="V1Pod"
-                                    Hover="true"
-                                    Filterable="true"
-                                    FilterMode="@DataGridFilterMode.Simple"
-                                    QuickFilter="@PodQuickFilter"
-                                    ShowFilterIcons="false"
-                                    Bordered="true"
-                                    Dense="true"
-                                    RowStyleFunc="@RowStyleFunc"
-                                    Loading="@_podsLoading"
-                                    LoadingProgressColor="Color.Primary"
-                                    FixedHeader Height="400px">
-                                        <ToolBarContent>
-                                            <MudText Typo="Typo.h6">Pod Status</MudText>
-                                            <MudSpacer />
-                                            <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
-                                            AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-                                        </ToolBarContent>
-                                        <Columns>
-                                            <!-- Pod Name -->
-                                            <PropertyColumn Property="x => x.Name()"
-                                            Title="Name"
-                                            CellStyleFunc="@CellStyleFunc" />
+                            <MudPaper Class="ma-2 pa-2">
+                                <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
+                                    <MudGrid>
+                                        <MudItem xs="12">
+                                            <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
+                                        </MudItem>
+                                        <!-- Pod Name -->
+                                        <MudItem xs="6">
+                                            <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true" />
+                                        </MudItem>
+                                        <!-- Container Name -->
+                                        <MudItem xs="6">
+                                            <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false" />
+                                        </MudItem>
+                                        <!-- Container Image -->
+                                        <MudItem xs="6">
+                                            <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true" />
+                                        </MudItem>
+                                        <!-- Image Pull Policy -->
+                                        <MudItem xs="6">
+                                            <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
+                                                <MudSelectItem Value="@("Always")">Always</MudSelectItem>
+                                                <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
+                                                <MudSelectItem Value="@("Never")">Never</MudSelectItem>
+                                            </MudSelect>
+                                        </MudItem>
+                                        <!-- Image Pull Secret -->
+                                        <MudItem xs="6">
+                                            <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret" />
+                                        </MudItem>
+                                        <MudItem xs="12" Class="mt-2">
+                                            <MudGrid>
+                                                <MudItem xs="6">
+                                                    <MudText Typo="Typo.h6">Environment Variables</MudText>
+                                                </MudItem>
+                                                <MudItem xs="6">
+                                                    <MudIconButton
+                                                        Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                                        Color="Color.Primary"
+                                                        OnClick="@(() => AddEnvVar())"
+                                                    />
+                                                </MudItem>
+                                            </MudGrid>
+                                        </MudItem>
+                                        <MudItem xs="12">
 
-                                            <!-- Pod Phase (e.g., Running, Pending) -->
-                                            @* <PropertyColumn Property="x => x.Status.Phase" *@
-                                            @*                 Title="Status" *@
-                                            @*                 CellStyleFunc="@_cellStyleFunc" /> *@
+                                            <MudTable Items="_envVars" Bordered="false" Dense="true" >
+                                                <HeaderContent>
+                                                    <MudTh>Name</MudTh>
+                                                    <MudTh>Value</MudTh>
+                                                    <MudTh></MudTh>
+                                                </HeaderContent>
+                                                <RowTemplate>
+                                                    <MudTd>
+                                                        <MudTextField  @bind-Value="context.Name" Placeholder="Enter name" />
+                                                    </MudTd>
+                                                    <MudTd>
+                                                        <MudTextField @bind-Value="context.Value" Placeholder="Enter value" />
+                                                    </MudTd>
+                                                    <MudTd>
+                                                        <MudGrid>
+                                                            <MudItem xs="6">
 
-                                            <!-- Container States -->
-                                            <TemplateColumn Title="Container State"
-                                            CellStyleFunc="@CellStyleFunc">
-                                                <CellTemplate>
-                                                    @if (context.Item.Status?.ContainerStatuses != null)
-                                                    {
-                                                        <ul>
-                                                            @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
+                                                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                                               Size="Size.Small"
+                                                                               Color="Color.Error"
+                                                                               OnClick="@(() => DeleteEnvVar(context))" >
+                                                                </MudIconButton></MudItem></MudGrid>
+                                                    </MudTd>
+                                                </RowTemplate>
+                                            </MudTable>
+                                        </MudItem>
+
+                                        <!-- Submit Button -->
+                                        <MudItem xs="12">
+                                            <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                                Request Resource
+                                            </MudButton>
+                                        </MudItem>
+                                    </MudGrid>
+                                </MudForm>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudPaper Class="ma-2">
+                                <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
+
+                                </MudTextField>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudPaper Class="ma-2">
+                                <MudItem xs="12">
+                                    @if (_k8SError)
+                                    {
+                                        <MudText Class="ma-4">
+                                            Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        if(_watching)
+                                        {
+                                            <MudDataGrid Items="@_podList"
+                                                         T="V1Pod"
+                                                         Hover="true"
+                                                         Filterable="true"
+                                                         FilterMode="@DataGridFilterMode.Simple"
+                                                         QuickFilter="@PodQuickFilter"
+                                                         ShowFilterIcons="false"
+                                                         Bordered="true"
+                                                         Dense="true"
+                                                         RowStyleFunc="@RowStyleFunc"
+                                                         Loading="@_podsLoading"
+                                                         LoadingProgressColor="Color.Primary"
+                                                         FixedHeader Height="400px">
+                                                <ToolBarContent>
+                                                    <MudText Typo="Typo.h6">Pod Status</MudText>
+                                                    <MudSpacer />
+                                                    <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                                                                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                                                </ToolBarContent>
+                                                <Columns>
+                                                    <!-- Pod Name -->
+                                                    <PropertyColumn Property="x => x.Name()"
+                                                                    Title="Name"
+                                                                    CellStyleFunc="@CellStyleFunc" />
+
+                                                    <!-- Pod Phase (e.g., Running, Pending) -->
+                                                    @* <PropertyColumn Property="x => x.Status.Phase" *@
+                                                    @*                 Title="Status" *@
+                                                    @*                 CellStyleFunc="@_cellStyleFunc" /> *@
+
+                                                    <!-- Container States -->
+                                                    <TemplateColumn Title="Container State"
+                                                                    CellStyleFunc="@CellStyleFunc">
+                                                        <CellTemplate>
+                                                            @if (context.Item.Status?.ContainerStatuses != null)
                                                             {
-                                                                <li>
-                                                                    <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
-                                                                </li>
+                                                                <ul>
+                                                                    @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
+                                                                    {
+                                                                        <li>
+                                                                            <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
+                                                                        </li>
+                                                                    }
+                                                                </ul>
                                                             }
-                                                        </ul>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span>No data</span>
-                                                    }
-                                                </CellTemplate>
-                                            </TemplateColumn>
+                                                            else
+                                                            {
+                                                                <span>No data</span>
+                                                            }
+                                                        </CellTemplate>
+                                                    </TemplateColumn>
 
-                                            <!-- Menu Actions -->
-                                            <TemplateColumn Title="Actions"
-                                            CellStyleFunc="@CellStyleFunc">
-                                                <CellTemplate>
-                                                    <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
-                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
-                                                            @($"Exec Shell")
-                                                        </MudMenuItem>
-                                                        <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
-                                                            @($"All logs")
-                                                        </MudMenuItem>
-                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
-                                                            @($"Current logs")
-                                                        </MudMenuItem>
-                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
-                                                            @($"stdout logs")
-                                                        </MudMenuItem>
-                                                        <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                        OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
-                                                            @($"stderr logs")
-                                                        </MudMenuItem>
-                                                    </MudMenu>
-                                                </CellTemplate>
-                                            </TemplateColumn>
+                                                    <!-- Menu Actions -->
+                                                    <TemplateColumn Title="Actions"
+                                                                    CellStyleFunc="@CellStyleFunc">
+                                                        <CellTemplate>
+                                                            <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                                                <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                                             OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
+                                                                    @($"Exec Shell")
+                                                                </MudMenuItem>
+                                                                <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                                                    @($"All logs")
+                                                                </MudMenuItem>
+                                                                <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                                             OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
+                                                                    @($"Current logs")
+                                                                </MudMenuItem>
+                                                                <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                                             OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                                    @($"stdout logs")
+                                                                </MudMenuItem>
+                                                                <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                                             OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                                    @($"stderr logs")
+                                                                </MudMenuItem>
+                                                            </MudMenu>
+                                                        </CellTemplate>
+                                                    </TemplateColumn>
 
-                                            <!-- Delete Action -->
-                                            <TemplateColumn Title="Delete">
-                                                <CellTemplate>
-                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                    OnClick="@(() => DeleteK8SPodAsync(context.Item))">
-                                                    </MudIconButton>
-                                                </CellTemplate>
-                                            </TemplateColumn>
-                                        </Columns>
+                                                    <!-- Delete Action -->
+                                                    <TemplateColumn Title="Delete">
+                                                        <CellTemplate>
+                                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                                           OnClick="@(() => DeleteK8SPodAsync(context.Item))">
+                                                            </MudIconButton>
+                                                        </CellTemplate>
+                                                    </TemplateColumn>
+                                                </Columns>
 
-                                        @*                                     <!-- Pager Content -->
+                                                @*                                     <!-- Pager Content -->
                                     <PagerContent>
                                         <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
                                     </PagerContent> *@
-                                    </MudDataGrid>
-                                }
-                                else
-                                {
-                                    <MudPaper Class="pa-4" Elevation="4">
-                                        <MudGrid Spacing="2">
-                                            <MudItem xs="12" Class="d-flex justify-center align-center">
-                                                <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mud-icon-size-48" Color="Color.Error"></MudIcon>
-                                            </MudItem>
-                                            <MudItem xs="12">
-                                                <MudText Typo="Typo.h5" Class="font-weight-bold" Color="@Color.Error">
-                                                    Kubernetes Watch Connection Failed
-                                                </MudText>
-                                            </MudItem>
-                                            <MudItem xs="12">
-                                                <MudText Typo="Typo.body1">
-                                                    Unable to establish a connection to the Kubernetes watch stream. Please check your connection or cluster status and try again.
-                                                </MudText>
-                                            </MudItem>
-                                            <MudItem xs="12" Class="mt-2">
-                                                <MudButton OnClick="LoadPodsAndWatchAsync" Color="Color.Error" Variant="Variant.Filled" Style="width: 150px;">
-                                                    <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1" />
-                                                    Restart
-                                                </MudButton>
-                                            </MudItem>
-                                        </MudGrid>
-                                    </MudPaper>
+                                            </MudDataGrid>
+                                        }
+                                        else
+                                        {
+                                            <MudPaper Class="pa-4" Elevation="4">
+                                                <MudGrid Spacing="2">
+                                                    <MudItem xs="12" Class="d-flex justify-center align-center">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mud-icon-size-48" Color="Color.Error"></MudIcon>
+                                                    </MudItem>
+                                                    <MudItem xs="12">
+                                                        <MudText Typo="Typo.h5" Class="font-weight-bold" Color="@Color.Error">
+                                                            Kubernetes Watch Connection Failed
+                                                        </MudText>
+                                                    </MudItem>
+                                                    <MudItem xs="12">
+                                                        <MudText Typo="Typo.body1">
+                                                            Unable to establish a connection to the Kubernetes watch stream. Please check your connection or cluster status and try again.
+                                                        </MudText>
+                                                    </MudItem>
+                                                    <MudItem xs="12" Class="mt-2">
+                                                        <MudButton OnClick="LoadPodsAndWatchAsync" Color="Color.Error" Variant="Variant.Filled" Style="width: 150px;">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1" />
+                                                            Restart
+                                                        </MudButton>
+                                                    </MudItem>
+                                                </MudGrid>
+                                            </MudPaper>
 
-                                }   
-                            }
+                                        }
+                                    }
+                                </MudItem>
+                            </MudPaper>
                         </MudItem>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="8">
-        <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
-            <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-            PanelClass="border-radius-bottom"
-            TabHeaderClass="border-radius-top"
-            Elevation="4"
-            KeepPanelsAlive>
-                <ChildContent>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="8">
+                <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
+                    <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
+                             PanelClass="border-radius-bottom"
+                             TabHeaderClass="border-radius-top"
+                             Elevation="4"
+                             KeepPanelsAlive>
+                        <ChildContent>
 
-                    @foreach (var tab in _tabs)
-                    {
-                        <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
-                        ShowCloseIcon="@tab.ShowCloseIcon"
-                        Icon="@Icons.Material.Filled.Terminal"
-                        @key="@tab.Id">
-                            @tab.K8STerminalFragment
-                        </MudTabPanel>
-                    }
-                </ChildContent>
-                <TabPanelHeader>
-                    <MudTooltip Text="Close tab. All data will be lost">
-                        <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-                    </MudTooltip>
-                </TabPanelHeader>
-            </MudTabs>
-        </MudPaper>
-    </MudItem>
+                            @foreach (var tab in _tabs)
+                            {
+                                <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
+                                             ShowCloseIcon="@tab.ShowCloseIcon"
+                                             Icon="@Icons.Material.Filled.Terminal"
+                                             @key="@tab.Id">
+                                    @tab.K8STerminalFragment
+                                </MudTabPanel>
+                            }
+                        </ChildContent>
+                        <TabPanelHeader>
+                            <MudTooltip Text="Close tab. All data will be lost">
+                                <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
+                            </MudTooltip>
+                        </TabPanelHeader>
+                    </MudTabs>
+                </MudPaper>
+            </MudItem>
 
-</MudGrid>
+        </MudGrid>       
+    </Authorized>
+    <NotAuthorized>
+        Unauthorized
+    </NotAuthorized>
+</AuthorizeView>
+
+
 
 @code {
     
