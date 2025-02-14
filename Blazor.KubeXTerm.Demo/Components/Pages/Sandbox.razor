@@ -8,12 +8,13 @@
 @using Blazor.KubeXTerm.Utils
 @using Blazor.KubeXTerm.Components
 @using Microsoft.AspNetCore.Components.Authorization
-
+@using Blazor.KubeXTerm.Demo.Components.Sandbox
 
 @implements IAsyncDisposable
 
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IWebHostEnvironment Environment
 @attribute [Authorize]
 
 <AuthorizeView Context="AuthViewContext">
@@ -22,92 +23,115 @@
             <MudItem xs="4">
                 <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
                     <MudGrid Spacing="2">
-                        <MudItem xs="12">
-                            <MudPaper Class="ma-2 pa-2">
-                                <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
-                                    <MudGrid>
-                                        <MudItem xs="12">
-                                            <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
-                                        </MudItem>
-                                        <!-- Pod Name -->
-                                        <MudItem xs="6">
-                                            <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true" />
-                                        </MudItem>
-                                        <!-- Container Name -->
-                                        <MudItem xs="6">
-                                            <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false" />
-                                        </MudItem>
-                                        <!-- Container Image -->
-                                        <MudItem xs="6">
-                                            <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true" />
-                                        </MudItem>
-                                        <!-- Image Pull Policy -->
-                                        <MudItem xs="6">
-                                            <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
-                                                <MudSelectItem Value="@("Always")">Always</MudSelectItem>
-                                                <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
-                                                <MudSelectItem Value="@("Never")">Never</MudSelectItem>
-                                            </MudSelect>
-                                        </MudItem>
-                                        <!-- Image Pull Secret -->
-                                        <MudItem xs="6">
-                                            <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret" />
-                                        </MudItem>
-                                        <MudItem xs="12" Class="mt-2">
-                                            <MudGrid>
-                                                <MudItem xs="6">
-                                                    <MudText Typo="Typo.h6">Environment Variables</MudText>
-                                                </MudItem>
-                                                <MudItem xs="6">
-                                                    <MudIconButton
-                                                        Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                                        Color="Color.Primary"
-                                                        OnClick="@(() => AddEnvVar())"
-                                                    />
-                                                </MudItem>
-                                            </MudGrid>
-                                        </MudItem>
-                                        <MudItem xs="12">
-
-                                            <MudTable Items="_envVars" Bordered="false" Dense="true" >
-                                                <HeaderContent>
-                                                    <MudTh>Name</MudTh>
-                                                    <MudTh>Value</MudTh>
-                                                    <MudTh></MudTh>
-                                                </HeaderContent>
-                                                <RowTemplate>
-                                                    <MudTd>
-                                                        <MudTextField  @bind-Value="context.Name" Placeholder="Enter name" />
-                                                    </MudTd>
-                                                    <MudTd>
-                                                        <MudTextField @bind-Value="context.Value" Placeholder="Enter value" />
-                                                    </MudTd>
-                                                    <MudTd>
-                                                        <MudGrid>
-                                                            <MudItem xs="6">
-
-                                                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                                               Size="Size.Small"
-                                                                               Color="Color.Error"
-                                                                               OnClick="@(() => DeleteEnvVar(context))" >
-                                                                </MudIconButton></MudItem></MudGrid>
-                                                    </MudTd>
-                                                </RowTemplate>
-                                            </MudTable>
-                                        </MudItem>
-
-                                        <!-- Submit Button -->
-                                        <MudItem xs="12">
-                                            <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
-                                                Request Resource
-                                            </MudButton>
-                                        </MudItem>
-                                    </MudGrid>
-                                </MudForm>
-                            </MudPaper>
+                        <MudItem>
+                            <MudRadioGroup T="string" Name="Resource Type"
+                                           @bind-Value="@_resourceTypeSelected"
+                                           >
+                                <MudRadio T="string" Label="Predefined" Value="@("Predefined")"></MudRadio>
+                                <MudRadio T="string" Label="Manuel" Value="@("Manuel")"></MudRadio>
+                            </MudRadioGroup>
                         </MudItem>
-                        <MudItem xs="12">
-                            <MudPaper Class="ma-2">
+                        @if (_resourceTypeSelected == "Predefined")
+                        {
+                        <MudItem xs="12" Class="ma-4">
+                            <MudSelect @bind-Value="_selectedPredefinedPod" Label="Select a predefined resource" ToStringFunc="@getPodName">
+                                @foreach (V1Pod p in _preDefinedPodResources)
+                                {
+                                <MudSelectItem Value="@p"></MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12">
+                                <MudPaper Class="ma-2 pa-2">
+                                    <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
+                                        <MudGrid>
+                                            <MudItem xs="12">
+                                                <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
+                                            </MudItem>
+                                            <!-- Pod Name -->
+                                            <MudItem xs="6">
+                                                <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true"/>
+                                            </MudItem>
+                                            <!-- Container Name -->
+                                            <MudItem xs="6">
+                                                <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false"/>
+                                            </MudItem>
+                                            <!-- Container Image -->
+                                            <MudItem xs="6">
+                                                <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true"/>
+                                            </MudItem>
+                                            <!-- Image Pull Policy -->
+                                            <MudItem xs="6">
+                                                <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
+                                                    <MudSelectItem Value="@("Always")">Always</MudSelectItem>
+                                                    <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
+                                                    <MudSelectItem Value="@("Never")">Never</MudSelectItem>
+                                                </MudSelect>
+                                            </MudItem>
+                                            <!-- Image Pull Secret -->
+                                            <MudItem xs="6">
+                                                <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret"/>
+                                            </MudItem>
+                                            <MudItem xs="12" Class="mt-2">
+                                                <MudGrid>
+                                                    <MudItem xs="6">
+                                                        <MudText Typo="Typo.h6">Environment Variables</MudText>
+                                                    </MudItem>
+                                                    <MudItem xs="6">
+                                                        <MudIconButton
+                                                            Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                                            Color="Color.Primary"
+                                                            OnClick="@(() => AddEnvVar())"/>
+                                                    </MudItem>
+                                                </MudGrid>
+                                            </MudItem>
+                                            <MudItem xs="12">
+
+                                                <MudTable Items="_envVars" Bordered="false" Dense="true">
+                                                    <HeaderContent>
+                                                        <MudTh>Name</MudTh>
+                                                        <MudTh>Value</MudTh>
+                                                        <MudTh></MudTh>
+                                                    </HeaderContent>
+                                                    <RowTemplate>
+                                                        <MudTd>
+                                                            <MudTextField @bind-Value="context.Name" Placeholder="Enter name"/>
+                                                        </MudTd>
+                                                        <MudTd>
+                                                            <MudTextField @bind-Value="context.Value" Placeholder="Enter value"/>
+                                                        </MudTd>
+                                                        <MudTd>
+                                                            <MudGrid>
+                                                                <MudItem xs="6">
+
+                                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                                                   Size="Size.Small"
+                                                                                   Color="Color.Error"
+                                                                                   OnClick="@(() => DeleteEnvVar(context))">
+                                                                    </MudIconButton></MudItem></MudGrid>
+                                                        </MudTd>
+                                                    </RowTemplate>
+                                                </MudTable>
+                                            </MudItem>
+
+                                            <!-- Submit Button -->
+                                            
+                                        </MudGrid>
+                                    </MudForm>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                        <MudItem xs="6" Class="ma-2">
+                            <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                Request Resource
+                            </MudButton>
+                        </MudItem>
+                        <MudItem xs="6" Class="ma-2"><UploadPredefinedResource OnUploadFinished="PopulatePredifinedPodsAsync"  /></MudItem>
+                        <MudItem xs="12" Class="ma-4">
+                            <MudPaper Class="ma-2 pa-2">
                                 <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
 
                                 </MudTextField>
@@ -124,7 +148,7 @@
                                     }
                                     else
                                     {
-                                        if(_watching)
+                                        if (_watching)
                                         {
                                             <MudDataGrid Items="@_podList"
                                                          T="V1Pod"
@@ -140,16 +164,23 @@
                                                          LoadingProgressColor="Color.Primary"
                                                          FixedHeader Height="400px">
                                                 <ToolBarContent>
-                                                    <MudText Typo="Typo.h6">Pod Status</MudText>
-                                                    <MudSpacer />
-                                                    <MudTextField @bind-Value="_podSearchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
-                                                                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                                                    <MudGrid>
+                                                        <MudItem xs="6"><MudText Typo="Typo.h6">Pod Status</MudText></MudItem>
+                                                        <MudItem xs="6"><MudTextField @bind-Value="_podSearchString" Placeholder="Search"
+                                                                                      Adornment="Adornment.Start" Immediate="true"
+                                                                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                                                                      IconSize="Size.Medium" Class="mt-4"></MudTextField></MudItem>
+                                                        
+                                                    </MudGrid>
                                                 </ToolBarContent>
                                                 <Columns>
                                                     <!-- Pod Name -->
                                                     <PropertyColumn Property="x => x.Name()"
                                                                     Title="Name"
-                                                                    CellStyleFunc="@CellStyleFunc" />
+                                                                    CellStyleFunc="@CellStyleFunc"/>
+                                                    <PropertyColumn Property="x => GetUserEnvValue(x, _userEnvName)"
+                                                                    Title= "User"
+                                                                    CellStyleFunc="@CellStyleFunc"/>
 
                                                     <!-- Pod Phase (e.g., Running, Pending) -->
                                                     @* <PropertyColumn Property="x => x.Status.Phase" *@
@@ -241,7 +272,7 @@
                                                     </MudItem>
                                                     <MudItem xs="12" Class="mt-2">
                                                         <MudButton OnClick="LoadPodsAndWatchAsync" Color="Color.Error" Variant="Variant.Filled" Style="width: 150px;">
-                                                            <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1" />
+                                                            <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1"/>
                                                             Restart
                                                         </MudButton>
                                                     </MudItem>
@@ -291,10 +322,9 @@
     </NotAuthorized>
 </AuthorizeView>
 
-
-
 @code {
-    
+    private string _resourceTypeSelected = "Predefined";
+    string _userEnvName = "DYNAMIC_USER";
     private string _connectionTypeSelected = Utils.K8SConnectionType.Bash;
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
@@ -305,6 +335,19 @@
     private IKubernetes _k8SClient;
 
     private MudForm _form;
+    private bool _resourceRequestIsExpanded = false;
+    private string _expandResourceRequestButtonIcon = Icons.Material.Filled.ExpandMore;
+    
+    
+    private void ExpandResourceRequest()
+    {
+        _resourceRequestIsExpanded = !_resourceRequestIsExpanded;
+        if (_resourceRequestIsExpanded)
+            _expandResourceRequestButtonIcon = Icons.Material.Filled.ExpandLess;
+        else
+            _expandResourceRequestButtonIcon = Icons.Material.Filled.ExpandMore;
+
+    }
     private bool _k8SRequestFormSuccess;
     private List<V1EnvVar> _envVars = new()
     {
@@ -319,7 +362,8 @@
         _envVars.Remove(env);
     }
 
-
+    V1Pod _selectedPredefinedPod;
+    
     //podview variables
 
     private string _podSearchString;
@@ -356,11 +400,22 @@
         return "Unknown";
     }
 
+    private Func<V1Pod, string> getPodName = pn => pn?.Metadata.Name; 
+
+
     /// <summary>
     /// Request Kubernetes resource asynchronously.
     /// </summary>
     private async Task RequestK8SResourceAsync()
     {
+        if (_selectedPredefinedPod != null)
+        {
+            V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_selectedPredefinedPod));
+            tmpPod.Metadata.Name = _selectedPredefinedPod.Metadata.Name 
+                                   + "-" + System.Guid.NewGuid().ToString("N")[..4]; 
+            await CreatePod(tmpPod);
+            return;
+        }
         await _form.Validate();
 
         if (string.IsNullOrEmpty(_containerName))
@@ -392,35 +447,49 @@
                     },
                         ImagePullSecrets = new[]
                         {
-                        new V1LocalObjectReference
-                        {
-                            Name = _imagePullSecret
+                            new V1LocalObjectReference
+                            {
+                                Name = _imagePullSecret
+                            }
                         }
-                    }
                     }
                 };
 
-            try
-            {
-                var createdPod = await _k8SClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
-                Snackbar.Add($"Pod '{createdPod.Metadata.Name}' created successfully.", Severity.Success);
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add($"Error creating pod: {ex.Message}", Severity.Error);
-            }
+            bool result = await CreatePod((pod));
         }
     }
 
+    private string GetUserEnvValue(V1Pod pod, string variableName)
+    {
+        string val = pod.Spec?.Containers?.FirstOrDefault()?.Env?.FirstOrDefault(e => e.Name == variableName)?.Value;
+        return val ?? "";
+    }
+
+    private async Task<bool> CreatePod(V1Pod pod)
+    {
+        try
+        {
+            var createdPod = await _k8SClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
+            Snackbar.Add($"Pod '{createdPod.Metadata.Name}' created successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating pod: {ex.Message}", Severity.Error);
+            return false;
+        }
+        return true;
+    }
+
     private string _json;
-
-
+    private List<V1Pod> _preDefinedPodResources = new();
+    
+    
     /// <summary>
     /// Parses a pod from a JSON string.
     /// </summary>
     /// <param name="jsonContent"></param>
     /// <returns></returns>
-    private async Task<V1Pod> ParsePodFromJson(string jsonContent)
+    private async Task<V1Pod> ParsePodsFromJson(string jsonContent)
     {
         var options = new JsonSerializerOptions
         {
@@ -472,7 +541,7 @@
     // style the cells according to the element's physical classification and the molar mass.
     private Func<V1Pod, string> CellStyleFunc => x =>
     {
-        return "padding: 2px; margin: 1px";
+        return "padding: 2px; margin: 1px; text-align: center";
     };
 
     private Dictionary<string, string> _rowConnectionTypes = new();
@@ -652,7 +721,39 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await PopulatePredifinedPodsAsync();
+    }
 
+    private async Task PopulatePredifinedPodsAsync()
+    {
+        _preDefinedPodResources.Clear();
+        string directoryPath = Path.Combine(Environment.ContentRootPath, 
+            Environment.EnvironmentName,
+            "PredefinedResources");
+        foreach (var filePath in Directory.GetFiles(directoryPath, "*.json"))
+        {
+            try
+            {
+                string jsonContent = File.ReadAllText(filePath);
+                
+                // Deserialize the JSON into a V1Job object
+                V1Pod pod = KubernetesJson.Deserialize<V1Pod>(jsonContent);
+
+                if (pod != null)
+                {
+                    Console.WriteLine($"Parsed Kubernetes Pod: {pod.Metadata.Name}");
+                    _preDefinedPodResources.Add(pod);
+                }
+                else
+                {
+                    Console.WriteLine($"Invalid Kubernetes Pod definition in file: {filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing file {filePath}: {ex.Message}");
+            }
+        }
     }
 
     private void ShowKubernetesErrorDialog(string errorMessage)

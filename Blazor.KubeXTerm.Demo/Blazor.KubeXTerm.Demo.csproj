@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Blazor.DiscoBall" Version="1.0.3" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="KubernetesClient" Version="16.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.12" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.4.0" />
@@ -24,6 +25,7 @@
 
 
   <ItemGroup>
+    <Folder Include="Development\unsafe_uploads\" />
     <Folder Include="Pods\" />
     <Folder Include="wwwroot\js\" />
   </ItemGroup>
