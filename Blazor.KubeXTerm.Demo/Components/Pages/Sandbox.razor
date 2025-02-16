@@ -118,13 +118,15 @@
                                 </MudPaper>
                             </MudItem>
                         }
-                        <MudItem xs="6" Class="ma-2">
-                            <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
-                                Request Resource
-                            </MudButton>
+                        <MudItem xs="12" Class="ma-2">
+                            <MudStack Row="true">
+                                <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                    Request Resource
+                                </MudButton>
+                                <UploadPredefinedResource
+                                    OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
+                            </MudStack>
                         </MudItem>
-                        <MudItem xs="6" Class="ma-2"><UploadPredefinedResource 
-                                                         OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"  /></MudItem>
                         <MudItem xs="12" Class="ma-4">
                             <MudPaper Class="ma-2 pa-2">
                                 <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
@@ -424,16 +426,19 @@
     /// </summary>
     private async Task RequestK8SResourceAsync()
     {
+        await _form.Validate();
         if (_resourceTypeSelected == "Predefined")
         {
+            //Since there is no deep copy for a k8s pod resources object
             V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_predefinedResourceDropdown._selectedPredefinedPod));
             tmpPod.Metadata.Name = _predefinedResourceDropdown._selectedPredefinedPod.Metadata.Name 
                                    + "-" + System.Guid.NewGuid().ToString("N")[..4]; 
             await CreatePod(tmpPod);
             return;
         }
-        await _form.Validate();
-
+        
+        
+        
         if (string.IsNullOrEmpty(_containerName))
             _containerName = _podName;
 
@@ -458,16 +463,15 @@
                             Image = _containerImage,
                             ImagePullPolicy = _imagePullPolicy,
                             Env = _envVars
-                            
                         }
                     },
-                        ImagePullSecrets = new[]
-                        {
+                        ImagePullSecrets =
+                        [
                             new V1LocalObjectReference
                             {
                                 Name = _imagePullSecret
                             }
-                        }
+                        ]
                     }
                 };
 
@@ -588,7 +592,6 @@
 
         try
         {
-            
             // Step 1: Get the initial list of pods
             var initialPodList = await _k8SClient.CoreV1.ListNamespacedPodAsync(
                 namespaceName,
@@ -730,7 +733,8 @@
             }
         }
 
-        await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
+        if(_predefinedResourceDropdown != null)
+            await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
     }
 
     protected override async Task OnInitializedAsync()

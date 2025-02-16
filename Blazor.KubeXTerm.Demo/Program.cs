@@ -18,6 +18,8 @@ var configuration = builder.Configuration.SetBasePath(Directory.GetCurrentDirect
     .AddEnvironmentVariables() // Override with environment variables if set
     .Build();
 
+var useKeycloak = !string.Equals(configuration["USE_KEYCLOAK"], "false", StringComparison.OrdinalIgnoreCase);
+
 HttpClient httpClient;
 if (configuration["HTTPCLIENT_VALIDATE_EXTERNAL_CERTIFICATES"] == "false")
 {
@@ -33,86 +35,90 @@ else
     httpClient = new HttpClient();
 }
 builder.Services.AddSingleton(httpClient);
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+if (useKeycloak)
 {
-    options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-
-    var backendIdpUrl = configuration["OIDC_IDP_ADDRESS_FOR_SERVER"];
-    var clientIdpUrl = configuration["OIDC_IDP_ADDRESS_FOR_USERS"]; 
-
-    options.Configuration = new ()
+    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
     {
-        Issuer = backendIdpUrl,
-        AuthorizationEndpoint = $"{clientIdpUrl}/protocol/openid-connect/auth",
-        TokenEndpoint = $"{backendIdpUrl}/protocol/openid-connect/token",
-        JwksUri = $"{backendIdpUrl}/protocol/openid-connect/certs",
-        JsonWebKeySet = FetchJwks($"{backendIdpUrl}/protocol/openid-connect/certs"),
-        EndSessionEndpoint = $"{clientIdpUrl}/protocol/openid-connect/logout",
-    };
-    Console.WriteLine("Jwks: "+options.Configuration.JsonWebKeySet);
-    foreach(var key in options.Configuration.JsonWebKeySet.GetSigningKeys())
-    {
-        options.Configuration.SigningKeys.Add(key);
-        Console.WriteLine("Added SigningKey: "+ key.KeyId);
-    }
+        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 
-    options.ClientId = configuration["OIDC_CLIENT_ID"]; // "my_app"
+        var backendIdpUrl = configuration["OIDC_IDP_ADDRESS_FOR_SERVER"];
+        var clientIdpUrl = configuration["OIDC_IDP_ADDRESS_FOR_USERS"];
 
-    /*options.TokenValidationParameters.ValidIssuers = [clientIdpUrl,backendIdpUrl];
-    options.TokenValidationParameters.NameClaimType = "name"; // This is what populates @context.User.Identity?.Name
-    options.TokenValidationParameters.RoleClaimType = "role";*/
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidIssuers = [clientIdpUrl, backendIdpUrl],
-        NameClaimType = "name",  // Ensures Blazor can use @context.User.Identity.Name
-        RoleClaimType = ClaimTypes.Role        // Ensures Blazor recognizes extracted roles correctly
-    };
-    options.RequireHttpsMetadata = configuration["OIDC_REQUIRE_HTTPS_METADATA"] != "false"; // disable only in dev env
-    options.ResponseType = OpenIdConnectResponseType.Code;
-    options.GetClaimsFromUserInfoEndpoint = true;
-    options.SaveTokens = true;
-    options.MapInboundClaims = true;
-    
-    // options.Scope.Clear();
-    options.Scope.Add("openid");
-    options.Scope.Add("profile");
-    options.Scope.Add("email");
-    options.Scope.Add("roles");
-    
-    // Custom claim mapping
-    options.Events = new OpenIdConnectEvents
-    {
-        OnTokenValidated = context =>
+        options.Configuration = new ()
         {
-            var identity = (ClaimsIdentity)context.Principal!.Identity!;
-            var accessToken = context.TokenEndpointResponse!.AccessToken;
+            Issuer = backendIdpUrl,
+            AuthorizationEndpoint = $"{clientIdpUrl}/protocol/openid-connect/auth",
+            TokenEndpoint = $"{backendIdpUrl}/protocol/openid-connect/token",
+            JwksUri = $"{backendIdpUrl}/protocol/openid-connect/certs",
+            JsonWebKeySet = FetchJwks($"{backendIdpUrl}/protocol/openid-connect/certs"),
+            EndSessionEndpoint = $"{clientIdpUrl}/protocol/openid-connect/logout",
+        };
 
-            if (!string.IsNullOrEmpty(accessToken))
+        options.ClientId = configuration["OIDC_CLIENT_ID"];
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuers = [clientIdpUrl, backendIdpUrl],
+            NameClaimType = "name",
+            RoleClaimType = ClaimTypes.Role
+        };
+
+        options.RequireHttpsMetadata = configuration["OIDC_REQUIRE_HTTPS_METADATA"] != "false";
+        options.ResponseType = OpenIdConnectResponseType.Code;
+        options.GetClaimsFromUserInfoEndpoint = true;
+        options.SaveTokens = true;
+        options.MapInboundClaims = true;
+
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+        options.Scope.Add("roles");
+
+        options.Events = new OpenIdConnectEvents
+        {
+            OnTokenValidated = context =>
             {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var token = handler.ReadJwtToken(accessToken);
+                var identity = (ClaimsIdentity)context.Principal!.Identity!;
+                var accessToken = context.TokenEndpointResponse!.AccessToken;
 
-                var resourceAccess = token.Claims.FirstOrDefault(c => c.Type == "resource_access")?.Value;
-                if (!string.IsNullOrEmpty(resourceAccess))
+                if (!string.IsNullOrEmpty(accessToken))
                 {
-                    using var jsonDoc = JsonDocument.Parse(resourceAccess);
-                    if (jsonDoc.RootElement.TryGetProperty("kube_xterm_demo", out var kubeXTermDemoRoles) &&
-                        kubeXTermDemoRoles.TryGetProperty("roles", out var roles))
+                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                    var token = handler.ReadJwtToken(accessToken);
+
+                    var resourceAccess = token.Claims.FirstOrDefault(c => c.Type == "resource_access")?.Value;
+                    if (!string.IsNullOrEmpty(resourceAccess))
                     {
-                        foreach (var role in roles.EnumerateArray())
+                        using var jsonDoc = JsonDocument.Parse(resourceAccess);
+                        if (jsonDoc.RootElement.TryGetProperty("kube_xterm_demo", out var kubeXTermDemoRoles) &&
+                            kubeXTermDemoRoles.TryGetProperty("roles", out var roles))
                         {
-                            identity.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                            foreach (var role in roles.EnumerateArray())
+                            {
+                                identity.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                            }
                         }
                     }
                 }
-            }
 
-            return Task.CompletedTask;
-        }
-    };
-})
-.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+                return Task.CompletedTask;
+            }
+        };
+    })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+}
+else
+{
+    // Fake authentication for "Demo User"
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("DemoPolicy", policy => policy.RequireAuthenticatedUser());
+    });
+}
+
 
 JsonWebKeySet FetchJwks(string url)
 {
@@ -145,21 +151,69 @@ builder.Services.AddScoped<HttpClient>(sp => new HttpClient
 
 var app = builder.Build();
 
+app.Use(async (context, next) =>
+{
+    if (!useKeycloak && !context.User.Identity!.IsAuthenticated)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, "Demo User"),
+            new(ClaimTypes.Role, "KubeXAdmin"), // Grant an Admin role for testing
+            new("preferred_username", "demo")
+        };
+
+        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, claimsPrincipal);
+    }
+    await next();
+});
+
 
 app.MapPost("/logout", async (HttpContext context) =>
 {
     await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+
+    if (useKeycloak)
+    {
+        await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+    }
+
+    Console.WriteLine("User logged out.");
+    return Results.Ok(new { message = "User logged out." });
 });
 
 app.MapPost("/login", async (HttpContext context) =>
 {
+    if (!useKeycloak)
+    {
+        // Create Demo User claims
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, "Demo User"),
+            new(ClaimTypes.Role, "KubeXAdmin"),
+            new("preferred_username", "demo") // Add preferred username
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        Console.WriteLine("Demo User logged in.");
+        return Results.Ok(new { message = "Demo User logged in." }); // ✅ RETURN STATEMENT ADDED
+    }
+
     var redirectUri = "/"; // Redirect to home page after login
     await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties
     {
         RedirectUri = redirectUri
     });
+
+    return Results.Challenge(); // ✅ RETURN STATEMENT ADDED
 });
+
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
