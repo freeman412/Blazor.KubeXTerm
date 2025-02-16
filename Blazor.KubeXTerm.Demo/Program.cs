@@ -126,10 +126,12 @@ JsonWebKeySet FetchJwks(string url)
     var jwks = result.Content.ReadAsStringAsync().Result;
     return new JsonWebKeySet(jwks);
 }
+
+//Authentication and Authorization Services
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+
 // Add MudBlazor services
 builder.Services.AddMudServices();
 // Add services to the container.

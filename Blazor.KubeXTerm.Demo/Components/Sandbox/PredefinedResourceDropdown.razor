@@ -1,0 +1,51 @@
+﻿@using k8s.Models
+@using k8s
+
+@inject IWebHostEnvironment WebHostEnvironment
+
+<MudSelect @bind-Value="_selectedPredefinedPod" Label="Select a predefined resource" 
+           ToStringFunc="@getPodName">
+    @foreach (V1Pod p in _preDefinedPodResources)
+    {
+        <MudSelectItem Value="@p"></MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    
+    public V1Pod _selectedPredefinedPod;
+    private List<V1Pod> _preDefinedPodResources = new();
+    private Func<V1Pod, string> getPodName = pn => pn?.Metadata.Name; 
+    
+    public async Task PopulatePredifinedPodsAsync()
+    {
+        _preDefinedPodResources.Clear();
+        string directoryPath = Path.Combine(WebHostEnvironment.ContentRootPath, 
+            WebHostEnvironment.EnvironmentName,
+            "PredefinedResources");
+        foreach (var filePath in Directory.GetFiles(directoryPath, "*.json"))
+        {
+            try
+            {
+                string jsonContent = File.ReadAllText(filePath);
+                
+                // Deserialize the JSON into a V1Job object
+                V1Pod pod = KubernetesJson.Deserialize<V1Pod>(jsonContent);
+
+                if (pod != null)
+                {
+                    Console.WriteLine($"Parsed Kubernetes Pod: {pod.Metadata.Name}");
+                    _preDefinedPodResources.Add(pod);
+                }
+                else
+                {
+                    Console.WriteLine($"Invalid Kubernetes Pod definition in file: {filePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing file {filePath}: {ex.Message}");
+            }
+        }
+    }
+}

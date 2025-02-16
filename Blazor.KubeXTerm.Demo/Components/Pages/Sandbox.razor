@@ -14,7 +14,6 @@
 
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
-@inject IWebHostEnvironment Environment
 @attribute [Authorize]
 
 <AuthorizeView Context="AuthViewContext">
@@ -34,12 +33,7 @@
                         @if (_resourceTypeSelected == "Predefined")
                         {
                         <MudItem xs="12" Class="ma-4">
-                            <MudSelect @bind-Value="_selectedPredefinedPod" Label="Select a predefined resource" ToStringFunc="@getPodName">
-                                @foreach (V1Pod p in _preDefinedPodResources)
-                                {
-                                <MudSelectItem Value="@p"></MudSelectItem>
-                                }
-                            </MudSelect>
+                            <PredefinedResourceDropdown @ref=_predefinedResourceDropdown></PredefinedResourceDropdown>
                         </MudItem>
                         }
                         else
@@ -129,7 +123,8 @@
                                 Request Resource
                             </MudButton>
                         </MudItem>
-                        <MudItem xs="6" Class="ma-2"><UploadPredefinedResource OnUploadFinished="PopulatePredifinedPodsAsync"  /></MudItem>
+                        <MudItem xs="6" Class="ma-2"><UploadPredefinedResource 
+                                                         OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"  /></MudItem>
                         <MudItem xs="12" Class="ma-4">
                             <MudPaper Class="ma-2 pa-2">
                                 <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
@@ -178,7 +173,7 @@
                                                     <PropertyColumn Property="x => x.Name()"
                                                                     Title="Name"
                                                                     CellStyleFunc="@CellStyleFunc"/>
-                                                    <PropertyColumn Property="x => GetUserEnvValue(x, _userEnvName)"
+                                                    <PropertyColumn Property="@(x => GetEnvValueFromV1Pod(x, "DYNAMIC_USER"))"
                                                                     Title= "User"
                                                                     CellStyleFunc="@CellStyleFunc"/>
 
@@ -323,8 +318,8 @@
 </AuthorizeView>
 
 @code {
+    private PredefinedResourceDropdown _predefinedResourceDropdown;
     private string _resourceTypeSelected = "Predefined";
-    string _userEnvName = "DYNAMIC_USER";
     private string _connectionTypeSelected = Utils.K8SConnectionType.Bash;
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
@@ -338,6 +333,30 @@
     private bool _resourceRequestIsExpanded = false;
     private string _expandResourceRequestButtonIcon = Icons.Material.Filled.ExpandMore;
     
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="firstRender"></param>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var welcomeTab = new TabView
+            {
+                Id = Guid.NewGuid(),
+                Label = $"Welcome",
+                K8STerminalFragment = builder =>
+                {
+                    builder.OpenComponent<WelcomeTerminal>(0);
+                    builder.CloseComponent();
+                }
+
+            };
+            _tabs.Add(welcomeTab);
+            _activeTabIndex = _tabs.Count - 1;
+            StateHasChanged();
+        }
+    }
     
     private void ExpandResourceRequest()
     {
@@ -362,7 +381,7 @@
         _envVars.Remove(env);
     }
 
-    V1Pod _selectedPredefinedPod;
+    
     
     //podview variables
 
@@ -400,18 +419,15 @@
         return "Unknown";
     }
 
-    private Func<V1Pod, string> getPodName = pn => pn?.Metadata.Name; 
-
-
     /// <summary>
     /// Request Kubernetes resource asynchronously.
     /// </summary>
     private async Task RequestK8SResourceAsync()
     {
-        if (_selectedPredefinedPod != null)
+        if (_resourceTypeSelected == "Predefined")
         {
-            V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_selectedPredefinedPod));
-            tmpPod.Metadata.Name = _selectedPredefinedPod.Metadata.Name 
+            V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_predefinedResourceDropdown._selectedPredefinedPod));
+            tmpPod.Metadata.Name = _predefinedResourceDropdown._selectedPredefinedPod.Metadata.Name 
                                    + "-" + System.Guid.NewGuid().ToString("N")[..4]; 
             await CreatePod(tmpPod);
             return;
@@ -459,7 +475,7 @@
         }
     }
 
-    private string GetUserEnvValue(V1Pod pod, string variableName)
+    private string GetEnvValueFromV1Pod(V1Pod pod, string variableName)
     {
         string val = pod.Spec?.Containers?.FirstOrDefault()?.Env?.FirstOrDefault(e => e.Name == variableName)?.Value;
         return val ?? "";
@@ -479,10 +495,6 @@
         }
         return true;
     }
-
-    private string _json;
-    private List<V1Pod> _preDefinedPodResources = new();
-    
     
     /// <summary>
     /// Parses a pod from a JSON string.
@@ -717,43 +729,13 @@
                 StateHasChanged(); //def need this!
             }
         }
+
+        await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await PopulatePredifinedPodsAsync();
-    }
-
-    private async Task PopulatePredifinedPodsAsync()
-    {
-        _preDefinedPodResources.Clear();
-        string directoryPath = Path.Combine(Environment.ContentRootPath, 
-            Environment.EnvironmentName,
-            "PredefinedResources");
-        foreach (var filePath in Directory.GetFiles(directoryPath, "*.json"))
-        {
-            try
-            {
-                string jsonContent = File.ReadAllText(filePath);
-                
-                // Deserialize the JSON into a V1Job object
-                V1Pod pod = KubernetesJson.Deserialize<V1Pod>(jsonContent);
-
-                if (pod != null)
-                {
-                    Console.WriteLine($"Parsed Kubernetes Pod: {pod.Metadata.Name}");
-                    _preDefinedPodResources.Add(pod);
-                }
-                else
-                {
-                    Console.WriteLine($"Invalid Kubernetes Pod definition in file: {filePath}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing file {filePath}: {ex.Message}");
-            }
-        }
+        
     }
 
     private void ShowKubernetesErrorDialog(string errorMessage)
@@ -766,26 +748,7 @@
         DialogService.Show<KubernetesErrorDialog>("Kubernetes Configuration Error", parameters);
     }
 
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var welcomeTab = new TabView
-                {
-                    Id = Guid.NewGuid(),
-                    Label = $"Welcome",
-                    K8STerminalFragment = builder =>
-                    {
-                        builder.OpenComponent<WelcomeTerminal>(0);
-                        builder.CloseComponent();
-                    }
-
-                };
-            _tabs.Add(welcomeTab);
-            _activeTabIndex = _tabs.Count - 1;
-            StateHasChanged();
-        }
-    }
+    
 
     private void AddTabCallback(string podName, string connectionType)
     {
@@ -851,7 +814,7 @@
     public async ValueTask DisposeAsync()
     {
         // Cancel and dispose of the cancellation token source
-        _cancellationTokenSource?.Cancel();
+        await _cancellationTokenSource.CancelAsync();
         _cancellationTokenSource?.Dispose();
     }
 }

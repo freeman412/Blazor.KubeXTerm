@@ -27,6 +27,7 @@
   <ItemGroup>
     <Folder Include="Development\unsafe_uploads\" />
     <Folder Include="Pods\" />
+    <Folder Include="Utils\" />
     <Folder Include="wwwroot\js\" />
   </ItemGroup>
 </Project>
