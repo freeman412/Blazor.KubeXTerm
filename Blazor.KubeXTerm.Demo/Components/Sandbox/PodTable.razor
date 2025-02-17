@@ -1,0 +1,382 @@
+﻿@using Blazor.KubeXTerm.Demo.Components.Dialogs
+@using Blazor.KubeXTerm.Demo.Services
+@using Blazor.KubeXTerm.Utils
+@using k8s
+@using k8s.Models
+
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject KubeXTermK8SManager KubeXTermK8SManager
+
+<MudPaper Class="ma-2">
+    <MudItem xs="12">
+        @if (_k8SError)
+        {
+            <MudText Class="ma-4">
+                Kubernetes Error! For this demo, your application must be able to successfully call KubernetesClientConfiguration.BuildDefaultConfig();
+            </MudText>
+        }
+        else
+        {
+            if (_watching)
+            {
+                <MudDataGrid Items="@_podList"
+                             T="V1Pod"
+                             Hover="true"
+                             Filterable="true"
+                             FilterMode="@DataGridFilterMode.Simple"
+                             QuickFilter="@PodQuickFilter"
+                             ShowFilterIcons="false"
+                             Bordered="true"
+                             Dense="true"
+                             RowStyleFunc="@RowStyleFunc"
+                             Loading="@_podsLoading"
+                             LoadingProgressColor="Color.Primary"
+                             FixedHeader Height="400px">
+                    <ToolBarContent>
+                        <MudGrid>
+                            <MudItem xs="6"><MudText Typo="Typo.h6">Pod Status</MudText></MudItem>
+                            <MudItem xs="6"><MudTextField @bind-Value="_podSearchString" Placeholder="Search"
+                                                          Adornment="Adornment.Start" Immediate="true"
+                                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                                          IconSize="Size.Medium" Class="mt-4"></MudTextField></MudItem>
+
+                        </MudGrid>
+                    </ToolBarContent>
+                    <Columns>
+                        <!-- Pod Name -->
+                        <PropertyColumn Property="x => x.Name()"
+                                        Title="Name"
+                                        CellStyleFunc="@CellStyleFunc"/>
+                        <PropertyColumn Property="@(x => GetEnvValueFromV1Pod(x, "DYNAMIC_USER"))"
+                                        Title= "User"
+                                        CellStyleFunc="@CellStyleFunc"/>
+
+                        <!-- Pod Phase (e.g., Running, Pending) -->
+                        @* <PropertyColumn Property="x => x.Status.Phase" *@
+                        @*                 Title="Status" *@
+                        @*                 CellStyleFunc="@_cellStyleFunc" /> *@
+
+                        <!-- Container States -->
+                        <TemplateColumn Title="Container State"
+                                        CellStyleFunc="@CellStyleFunc">
+                            <CellTemplate>
+                                @if (context.Item.Status?.ContainerStatuses != null)
+                                {
+                                    <ul>
+                                        @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
+                                        {
+                                            <li>
+                                                <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <span>No data</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Menu Actions -->
+                        <TemplateColumn Title="Actions"
+                                        CellStyleFunc="@CellStyleFunc">
+                            <CellTemplate>
+                                <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
+                                        @($"Exec Shell")
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                        @($"All logs")
+                                    </MudMenuItem>
+                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
+                                        @($"Current logs")
+                                    </MudMenuItem>
+                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
+                                        @($"stdout logs")
+                                    </MudMenuItem>
+                                    <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
+                                        @($"stderr logs")
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Delete Action -->
+                        <TemplateColumn Title="Delete">
+                            <CellTemplate>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               OnClick="@(() => DeleteK8SPodAsync(context.Item))">
+                                </MudIconButton>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+
+                    @*                                     <!-- Pager Content -->
+                                    <PagerContent>
+                                        <MudDataGridPager T="V1Pod" PageSizeSelector="false" Class="pa-1" />
+                                    </PagerContent> *@
+                </MudDataGrid>
+            }
+            else
+            {
+                <MudPaper Class="pa-4" Elevation="4">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" Class="d-flex justify-center align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mud-icon-size-48" Color="Color.Error"></MudIcon>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.h5" Class="font-weight-bold" Color="@Color.Error">
+                                Kubernetes Watch Connection Failed
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.body1">
+                                Unable to establish a connection to the Kubernetes watch stream. Please check your connection or cluster status and try again.
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" Class="mt-2">
+                            <MudButton OnClick="LoadPodsAndWatchAsync" Color="Color.Error" Variant="Variant.Filled" Style="width: 150px;">
+                                <MudIcon Icon="@Icons.Material.Filled.Refresh" Class="mr-1"/>
+                                Restart
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+            }
+        }
+    </MudItem>
+</MudPaper>
+
+@code {
+
+    private bool _podsLoading = true;
+    private bool _k8SError = false;
+    private IList<V1Pod> _podList = new List<V1Pod>();
+    private CancellationTokenSource _cancellationTokenSource = new();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _k8SConfig = KubernetesClientConfiguration.BuildDefaultConfig();
+                _k8SClient = new Kubernetes(_k8SConfig);
+
+                await LoadPodsAndWatchAsync();
+            }
+
+            catch (Exception e)
+            {
+                ShowKubernetesErrorDialog(e.Message);
+                _podsLoading = false;
+                _k8SError = true;
+                StateHasChanged(); //def need this!
+            }
+        }
+    }
+    
+    private void ShowKubernetesErrorDialog(string errorMessage)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ErrorMessage", errorMessage }
+        };
+
+        DialogService.Show<KubernetesErrorDialog>("Kubernetes Configuration Error", parameters);
+    }
+    
+    /// <summary>
+    ///  Deletes a Kubernetes Pod.
+    /// </summary>
+    /// <param name="pod"></param>
+    private async Task DeleteK8SPodAsync(V1Pod pod)
+    {
+        try
+        {
+            // Delete the pod from the specified namespace
+            await _k8SClient.CoreV1.DeleteNamespacedPodAsync(
+                name: pod.Name(),
+                namespaceParameter: pod.Namespace());
+
+            Console.WriteLine($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.");
+            Snackbar.Add($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting pod '{pod.Name()}': {ex.Message}");
+        }
+    }
+    
+    // style the cells according to the element's physical classification and the molar mass.
+    private Func<V1Pod, string> CellStyleFunc => x => "padding: 2px; margin: 1px; text-align: center";
+    // style the rows where the Element.Position == 0 to have italic text.
+    private Func<V1Pod, int, string> RowStyleFunc => (x, i) =>
+    {
+        return "font-style:italic";
+
+    };
+    
+    //podview variables
+    private string _podSearchString;
+    private Func<V1Pod, bool> PodQuickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_podSearchString))
+            return true;
+
+        if (x.Name().Contains(_podSearchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+    
+    
+    private void AddTabCallback(string podName, string connectionType)
+    {
+        var newTab = new TabView
+        {
+            Id = Guid.NewGuid(),
+            Label = $"{podName}",
+            K8STerminalFragment = builder =>
+            {
+                builder.OpenComponent<KubernetesTerminal>(0);
+                builder.AddAttribute(1, "PodName", podName);
+                builder.AddComponentParameter(2, "K8sContext", _k8SClient);
+                builder.AddComponentParameter(3, "ConnectionType", connectionType);
+                builder.AddComponentParameter(4, "Command", _cmd.Trim().Split(" "));
+                builder.CloseComponent();
+            }
+        };
+
+        _tabs.Add(newTab);
+        _activeTabIndex = _tabs.Count - 1; // Automatically switch to the new tab
+        StateHasChanged(); // Ensure the UI updates
+    }
+    
+    private readonly object _lock = new();
+    private bool _watching = true;
+    // Load the initial list of pods and start watching for changes
+    private async Task LoadPodsAndWatchAsync()
+    {
+        _podsLoading = true;
+        string namespaceName = "default";
+        StateHasChanged();
+
+        try
+        {
+            // Step 1: Get the initial list of pods
+            var initialPodList = await _k8SClient.CoreV1.ListNamespacedPodAsync(
+                namespaceName,
+                cancellationToken: _cancellationTokenSource.Token
+            );
+
+            lock (_lock)
+            {
+                _podList = initialPodList.Items;
+
+                _podsLoading = false;
+            }
+            _watching = true;
+            // Notify the UI to re-render
+            StateHasChanged();
+
+            // Step 2: Watch for changes to the pods
+            using var watch = await _k8SClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
+                namespaceName,
+                watch: true,
+                cancellationToken: _cancellationTokenSource.Token 
+               
+            );
+
+            watch.Watch(
+                onEvent: (Action<WatchEventType, V1Pod>)((eventType, pod) =>
+                {
+                    lock (_lock)
+                    {
+                        switch (eventType)
+                        {
+                            case WatchEventType.Added:
+                                // Add new pod
+                                if (!Enumerable.Any<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name)))
+                                {
+                                    this._podList.Add(pod);
+                                }
+                                break;
+
+                            case WatchEventType.Modified:
+                                // Update existing pod
+                                var existingPod = Enumerable.LastOrDefault<V1Pod>(this._podList, (Func<V1Pod, bool>)(p => p.Metadata?.Name == pod.Metadata?.Name));
+                                if (existingPod != null)
+                                {
+                                    this._podList.Remove(existingPod);
+                                    this._podList.Add(pod);
+                                }
+                                break;
+
+                            case WatchEventType.Deleted:
+                                if (pod.Metadata?.Name != null)
+                                {
+                                    var podToRemove = _podList.LastOrDefault(p => p.Metadata?.Name == pod.Metadata?.Name);
+                                    if (podToRemove != null)
+                                    {
+                                        _podList.Remove(podToRemove);
+                                    }
+                                }
+                                break;
+
+                            case WatchEventType.Error:
+                                Console.WriteLine($"Error with pod: {pod?.Metadata?.Name}");
+                                break;
+
+                            default:
+                                Console.WriteLine($"Unknown event type: {eventType}");
+                                break;
+                        }
+                    }
+
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
+                }),
+                onError: (exception) =>
+                {
+                    Console.WriteLine($"Watch error: {exception.Message}");
+                    _watching = false;
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
+                },
+                onClosed: () =>
+                {
+                    Console.WriteLine("Watch closed.");
+                    _watching = false;
+                    // Notify the UI to re-render
+                    InvokeAsync(StateHasChanged);
+                }
+            );
+
+            // Keep the watch running
+            await Task.Delay(Timeout.Infinite, _cancellationTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Operation was canceled.");
+            _podsLoading = false;
+            _watching = false;
+            // Notify the UI to re-render
+            InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            _podsLoading = false;
+            _watching = false;
+            // Notify the UI to re-render
+            InvokeAsync(StateHasChanged);
+        }
+    }
+}
