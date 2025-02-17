@@ -128,20 +128,13 @@ var app = builder.Build();
 
 app.Use(async (context, next) =>
 {
-    if (!useKeycloak && !context.User.Identity!.IsAuthenticated)
+    // Check if we are NOT using Keycloak and the user is NOT authenticated
+    if (!useKeycloak && !context.User.Identity!.IsAuthenticated && context.Request.Path != "/login")
     {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.Name, "Demo User"),
-            new(ClaimTypes.Role, "KubeXAdmin"), // Grant an Admin role for testing
-            new("preferred_username", "demo")
-        };
-
-        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, claimsPrincipal);
+        await next(); // Allow unauthenticated access
+        return;
     }
+    
     await next();
 });
 
@@ -154,8 +147,8 @@ app.MapPost("/logout", async (HttpContext context) =>
     {
         await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
     }
-
-    Console.WriteLine("User logged out.");
+    
+    context.Response.Redirect("/"); // Redirect to home after logout
 });
 
 
@@ -171,11 +164,11 @@ app.MapPost("/login", async (HttpContext context) =>
         return;
     }
     
-    // Simulate login for Demo User
+    //DEMO User Section
     var claims = new List<Claim>
     {
         new(ClaimTypes.Name, "Demo User"),
-        new(ClaimTypes.Role, "KubeXAdmin"), // Grant an Admin role for testing
+        new(ClaimTypes.Role, "KubeXAdmin"),
         new("preferred_username", "demo")
     };
 
@@ -184,9 +177,9 @@ app.MapPost("/login", async (HttpContext context) =>
 
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
     Console.WriteLine("Demo User logged in.");
+    
+    context.Response.Redirect("/"); // Redirect after login
 });
-
-
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

@@ -120,9 +120,11 @@
                         }
                         <MudItem xs="12" Class="ma-2">
                             <MudStack Row="true">
-                                <MudButton OnClick="RequestK8SResourceAsync" Color="Color.Primary" Variant="Variant.Filled">
+                                <MudButton OnClick="@(() => RequestK8SResourceAsync(AuthViewContext.User.FindFirst("preferred_username")?.Value))"
+                                           Color="Color.Primary" Variant="Variant.Filled">
                                     Request Resource
                                 </MudButton>
+
                                 <UploadPredefinedResource
                                     OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
                             </MudStack>
@@ -424,20 +426,32 @@
     /// <summary>
     /// Request Kubernetes resource asynchronously.
     /// </summary>
-    private async Task RequestK8SResourceAsync()
+    private async Task RequestK8SResourceAsync(string username)
     {
-        await _form.Validate();
+        
         if (_resourceTypeSelected == "Predefined")
         {
             //Since there is no deep copy for a k8s pod resources object
             V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_predefinedResourceDropdown._selectedPredefinedPod));
+            //tmpPodContainers =
+            V1EnvVar tmpVar = new V1EnvVar("DYNAMIC_USER", username);
+            foreach (V1Container container in tmpPod.Spec.Containers)
+            {
+                if (container.Env == null)
+                {
+                    container.Env = new List<V1EnvVar>(); // Initialize if null
+                }
+
+                container.Env.Add(tmpVar); // Add the environment variable
+            }
+
             tmpPod.Metadata.Name = _predefinedResourceDropdown._selectedPredefinedPod.Metadata.Name 
                                    + "-" + System.Guid.NewGuid().ToString("N")[..4]; 
             await CreatePod(tmpPod);
             return;
         }
-        
-        
+
+        await _form.Validate();
         
         if (string.IsNullOrEmpty(_containerName))
             _containerName = _podName;
