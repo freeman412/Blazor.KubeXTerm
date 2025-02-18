@@ -47,5 +47,8 @@
                 Console.WriteLine($"Error parsing file {filePath}: {ex.Message}");
             }
         }
+
+        _selectedPredefinedPod = _preDefinedPodResources.FirstOrDefault();
+        StateHasChanged();
     }
 }
