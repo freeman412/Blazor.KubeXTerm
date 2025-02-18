@@ -12,13 +12,15 @@
             @ref="_term"
             Options="_options"
             OnFirstRender="@OnFirstRender"
-            Style="padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px"
+            Style="@Style"
             OnRender="FitTerminal"
             OnKey="OnTerminalKey" />
 </div>
 
 @code{
-
+    [Parameter]
+    public string Style { get; set; } = $"padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px";
+    
     //The main Xterm Object
     private Xterm _term;
     private TerminalOptions _options = new TerminalOptions

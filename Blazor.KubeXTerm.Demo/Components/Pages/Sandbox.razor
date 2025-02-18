@@ -124,7 +124,8 @@
                         <MudItem xs="12" Class="ma-2">
                             <MudStack Row="true">
                                 <MudButton OnClick="@(() => RequestK8SResourceAsync(AuthViewContext.User.FindFirst("preferred_username")?.Value))"
-                                           Color="Color.Primary" Variant="Variant.Filled">
+                                           Color="Color.Primary" Variant="Variant.Filled"
+                                           Disabled="@(_predefinedResourceDropdown._selectedPredefinedPod != null && _resourceTypeSelected == "Predefined")">
                                     Request Resource
                                 </MudButton>
 
@@ -134,43 +135,19 @@
                         </MudItem>
                         <MudItem xs="12" Class="ma-4">
                             <MudPaper Class="ma-2 pa-2">
-                                <MudTextField @bind-Value="_cmd" Label="Command" HelperText="Custom Command. Default is /bin/sh">
-
+                                <MudTextField @bind-Value="_cmd" Label="Command" 
+                                              HelperText="Custom Command. Default is /usr/local/bin/start.sh">
                                 </MudTextField>
                             </MudPaper>
                         </MudItem>
                         <MudItem xs="12">
-                            <PodTable ></PodTable>
+                            <PodTable KubeXTermTabPanel="_kubeXtermTabPanel" Cmd="@_cmd" ></PodTable>
                         </MudItem>
                     </MudGrid>
                 </MudPaper>
             </MudItem>
             <MudItem xs="8">
-                <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
-                    <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-                             PanelClass="border-radius-bottom"
-                             TabHeaderClass="border-radius-top"
-                             Elevation="4"
-                             KeepPanelsAlive>
-                        <ChildContent>
-
-                            @foreach (var tab in _tabs)
-                            {
-                                <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
-                                             ShowCloseIcon="@tab.ShowCloseIcon"
-                                             Icon="@Icons.Material.Filled.Terminal"
-                                             @key="@tab.Id">
-                                    @tab.K8STerminalFragment
-                                </MudTabPanel>
-                            }
-                        </ChildContent>
-                        <TabPanelHeader>
-                            <MudTooltip Text="Close tab. All data will be lost">
-                                <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-                            </MudTooltip>
-                        </TabPanelHeader>
-                    </MudTabs>
-                </MudPaper>
+                <KubeXTermTabPanel @ref=_kubeXtermTabPanel ></KubeXTermTabPanel>
             </MudItem>
 
         </MudGrid>       
@@ -184,44 +161,33 @@
     private MudForm _form;
     private string _resourceTypeSelected = "Predefined";
     private PredefinedResourceDropdown _predefinedResourceDropdown;
-    
-    private List<TabView> _tabs = new();
-    private int _activeTabIndex = 0;
     private CancellationTokenSource _cancellationTokenSource = new();
-    
-    private bool _resourceRequestIsExpanded = false;
-    private string _expandResourceRequestButtonIcon = Icons.Material.Filled.ExpandMore;
-    
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="firstRender"></param>
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var welcomeTab = new TabView
-            {
-                Id = Guid.NewGuid(),
-                Label = $"Welcome",
-                K8STerminalFragment = builder =>
-                {
-                    builder.OpenComponent<WelcomeTerminal>(0);
-                    builder.CloseComponent();
-                }
-
-            };
-            _tabs.Add(welcomeTab);
-            _activeTabIndex = _tabs.Count - 1;
-            StateHasChanged();
-        }
-    }
-    
     private bool _k8SRequestFormSuccess;
+    private KubeXTermTabPanel _kubeXtermTabPanel;
+    private string _cmd = "/usr/local/bin/start.sh"; //"/bin/sh";*/
     private List<V1EnvVar> _envVars = new()
     {
         new V1EnvVar { Name = "", Value = "" }
     };
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(_predefinedResourceDropdown != null)
+            await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Cancel and dispose of the cancellation token source
+        await _cancellationTokenSource.CancelAsync();
+        _cancellationTokenSource?.Dispose();
+    }
+    
     private void AddEnvVar()
     {
         _envVars.Add(new V1EnvVar("", ""));
@@ -238,22 +204,10 @@
     private string _containerImage;
     private string _imagePullPolicy = "Always";
     private string _imagePullSecret;
-    private string _cmd = "/bin/sh";
+    
 
     List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-
-    private string GetContainerState(V1ContainerStatus containerStatus)
-    {
-        if (containerStatus.State?.Waiting != null)
-            return $"Waiting: {containerStatus.State.Waiting.Reason}";
-        if (containerStatus.State?.Running != null)
-            return "Running";
-        if (containerStatus.State?.Terminated != null)
-            return $"Terminated: {containerStatus.State.Terminated.Reason}";
-
-        return "Unknown";
-    }
-
+    
     /// <summary>
     /// Request Kubernetes resource asynchronously.
     /// </summary>
@@ -324,12 +278,6 @@
         }
     }
 
-    private string GetEnvValueFromV1Pod(V1Pod pod, string variableName)
-    {
-        string val = pod.Spec?.Containers?.FirstOrDefault()?.Env?.FirstOrDefault(e => e.Name == variableName)?.Value;
-        return val ?? "";
-    }
-
     private async Task<bool> CreatePod(V1Pod pod)
     {
         try
@@ -369,13 +317,6 @@
         return pod;
     }
     
-
-
-
-
-
-
-
     private Dictionary<string, string> _rowConnectionTypes = new();
 
     private string GetConnectionType(string podName)
@@ -391,74 +332,7 @@
     {
         _rowConnectionTypes[podName] = connectionType;
     }
-
     
 
-    private class TabView
-    {
-        public string Label { get; set; }
-        //public string Content { get; set; }
-        public RenderFragment K8STerminalFragment { get; set; }
-        public Guid Id { get; set; }
-        public bool ShowCloseIcon { get; set; } = false;
-    }
-
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if(_predefinedResourceDropdown != null)
-            await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        
-    }
-    
-    /// <summary>
-    ///
-    /// </summary>
-    /// <param name="tabPanel"></param>
-    public void RemoveTab(MudTabPanel tabPanel)
-    {
-        // Find the tab by its unique ID
-        var tab = _tabs.FirstOrDefault(x => Equals(x.Id, tabPanel.Tag));
-        if (tab != null)
-        {
-            // Get the index of the tab being removed
-            var indexToBeRemoved = _tabs.IndexOf(tab);
-
-            // Remove the tab
-            _tabs.Remove(tab);
-
-            // Adjust the active index
-            if (_activeTabIndex >= _tabs.Count)
-            {
-                // If the active index is out of bounds, select the last tab
-                _activeTabIndex = _tabs.Count - 1;
-            }
-            else if (_activeTabIndex > indexToBeRemoved)
-            {
-                // If the active tab is after the removed tab, adjust its index
-                _activeTabIndex--;
-            }
-            else if (_activeTabIndex == indexToBeRemoved)
-            {
-                //if the active tab is being removed
-                _activeTabIndex = 1;
-
-                _activeTabIndex = 0; ;
-            }
-        }
-
-        StateHasChanged();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        // Cancel and dispose of the cancellation token source
-        await _cancellationTokenSource.CancelAsync();
-        _cancellationTokenSource?.Dispose();
-    }
 }
 

@@ -48,7 +48,7 @@
                         <PropertyColumn Property="x => x.Name()"
                                         Title="Name"
                                         CellStyleFunc="@CellStyleFunc"/>
-                        <PropertyColumn Property="@(x => GetEnvValueFromV1Pod(x, "DYNAMIC_USER"))"
+                        <PropertyColumn Property="@(x => KubeXTermK8SManager.GetEnvValueFromV1Pod(x, "DYNAMIC_USER"))"
                                         Title= "User"
                                         CellStyleFunc="@CellStyleFunc"/>
 
@@ -67,7 +67,7 @@
                                         @foreach (var containerStatus in context.Item.Status.ContainerStatuses)
                                         {
                                             <li>
-                                                <b>@containerStatus.Name:</b> @GetContainerState(containerStatus)
+                                                <b>@containerStatus.Name:</b> @KubeXTermK8SManager.GetContainerState(containerStatus)
                                             </li>
                                         }
                                     </ul>
@@ -85,22 +85,22 @@
                             <CellTemplate>
                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Bash))">
+                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Bash, Cmd))">
                                         @($"Exec Shell")
                                     </MudMenuItem>
-                                    <MudMenuItem OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                    <MudMenuItem OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
                                         @($"All logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
+                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
                                         @($"Current logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
                                         @($"stdout logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
                                         @($"stderr logs")
                                     </MudMenuItem>
                                 </MudMenu>
@@ -111,7 +111,7 @@
                         <TemplateColumn Title="Delete">
                             <CellTemplate>
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                               OnClick="@(() => DeleteK8SPodAsync(context.Item))">
+                                               OnClick="@(() => DeleteResource(context.Item))">
                                 </MudIconButton>
                             </CellTemplate>
                         </TemplateColumn>
@@ -155,6 +155,11 @@
 </MudPaper>
 
 @code {
+    
+    [Parameter]
+    public KubeXTermTabPanel KubeXTermTabPanel { get; set; }
+    [Parameter]
+    public string Cmd { get; set; } = "/usr/local/bin/start.sh"; //"/bin/sh";
 
     private bool _podsLoading = true;
     private bool _k8SError = false;
@@ -166,9 +171,6 @@
         {
             try
             {
-                _k8SConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-                _k8SClient = new Kubernetes(_k8SConfig);
-
                 await LoadPodsAndWatchAsync();
             }
 
@@ -191,27 +193,14 @@
 
         DialogService.Show<KubernetesErrorDialog>("Kubernetes Configuration Error", parameters);
     }
-    
-    /// <summary>
-    ///  Deletes a Kubernetes Pod.
-    /// </summary>
-    /// <param name="pod"></param>
-    private async Task DeleteK8SPodAsync(V1Pod pod)
-    {
-        try
-        {
-            // Delete the pod from the specified namespace
-            await _k8SClient.CoreV1.DeleteNamespacedPodAsync(
-                name: pod.Name(),
-                namespaceParameter: pod.Namespace());
 
-            Console.WriteLine($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.");
+    private async Task DeleteResource(V1Pod pod)
+    {
+        bool success = await KubeXTermK8SManager.DeleteK8SPodAsync(pod);
+        if(success)
             Snackbar.Add($"Pod '{pod.Name()}' deleted successfully from namespace '{pod.Namespace()}'.", Severity.Success);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error deleting pod '{pod.Name()}': {ex.Message}");
-        }
+        else
+            Snackbar.Add($"Pod '{pod.Name()}' failed to delete from namespace '{pod.Namespace()}'.", Severity.Error);
     }
     
     // style the cells according to the element's physical classification and the molar mass.
@@ -237,27 +226,7 @@
     };
     
     
-    private void AddTabCallback(string podName, string connectionType)
-    {
-        var newTab = new TabView
-        {
-            Id = Guid.NewGuid(),
-            Label = $"{podName}",
-            K8STerminalFragment = builder =>
-            {
-                builder.OpenComponent<KubernetesTerminal>(0);
-                builder.AddAttribute(1, "PodName", podName);
-                builder.AddComponentParameter(2, "K8sContext", _k8SClient);
-                builder.AddComponentParameter(3, "ConnectionType", connectionType);
-                builder.AddComponentParameter(4, "Command", _cmd.Trim().Split(" "));
-                builder.CloseComponent();
-            }
-        };
 
-        _tabs.Add(newTab);
-        _activeTabIndex = _tabs.Count - 1; // Automatically switch to the new tab
-        StateHasChanged(); // Ensure the UI updates
-    }
     
     private readonly object _lock = new();
     private bool _watching = true;
@@ -271,7 +240,7 @@
         try
         {
             // Step 1: Get the initial list of pods
-            var initialPodList = await _k8SClient.CoreV1.ListNamespacedPodAsync(
+            var initialPodList = await KubeXTermK8SManager.K8SClient.CoreV1.ListNamespacedPodAsync(
                 namespaceName,
                 cancellationToken: _cancellationTokenSource.Token
             );
@@ -287,7 +256,7 @@
             StateHasChanged();
 
             // Step 2: Watch for changes to the pods
-            using var watch = await _k8SClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
+            using var watch = await KubeXTermK8SManager.K8SClient.CoreV1.ListNamespacedPodWithHttpMessagesAsync(
                 namespaceName,
                 watch: true,
                 cancellationToken: _cancellationTokenSource.Token 
