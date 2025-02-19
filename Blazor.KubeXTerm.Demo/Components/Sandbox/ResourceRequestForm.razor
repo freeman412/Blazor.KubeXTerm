@@ -1,0 +1,115 @@
+﻿@using k8s.Models
+
+<MudPaper Class="ma-2 pa-2">
+    <MudForm @ref="_form" @bind-IsValid="@K8SRequestFormSuccess">
+        <MudGrid>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
+            </MudItem>
+            <!-- Pod Name -->
+            <MudItem xs="6">
+                <MudTextField @bind-Value="PodName" Label="Pod Name" Required="true" />
+            </MudItem>
+            <!-- Container Name -->
+            <MudItem xs="6">
+                <MudTextField @bind-Value="ContainerName" Label="Container Name" Required="false"/>
+            </MudItem>
+            <!-- Container Image -->
+            <MudItem xs="6">
+                <MudTextField @bind-Value="ContainerImage" Label="Container Image" Required="true"/>
+            </MudItem>
+            <!-- Image Pull Policy -->
+            <MudItem xs="6">
+                <MudSelect @bind-Value="ImagePullPolicy" Label="Image Pull Policy" Required="true">
+                    <MudSelectItem Value="@("Always")">Always</MudSelectItem>
+                    <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
+                    <MudSelectItem Value="@("Never")">Never</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <!-- Image Pull Secret -->
+            <MudItem xs="6">
+                <MudTextField @bind-Value="ImagePullSecret" Label="Image Pull Secret"/>
+            </MudItem>
+            <MudItem xs="12" Class="mt-2">
+                <MudGrid>
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.h6">Environment Variables</MudText>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudIconButton
+                                Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                Color="Color.Primary"
+                                OnClick="@(() => AddEnvVar())"/>
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+            <MudItem xs="12">
+
+                <MudTable Items="EnvVars" Bordered="false" Dense="true">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Value</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudTextField @bind-Value="context.Name" Placeholder="Enter name"/>
+                        </MudTd>
+                        <MudTd>
+                            <MudTextField @bind-Value="context.Value" Placeholder="Enter value"/>
+                        </MudTd>
+                        <MudTd>
+                            <MudGrid>
+                                <MudItem xs="6">
+
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="@(() => DeleteEnvVar(context))">
+                                    </MudIconButton></MudItem></MudGrid>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudItem>
+        </MudGrid>
+    </MudForm>
+</MudPaper>
+
+@code {
+    public MudForm _form;
+    
+    // Form fields
+    public string PodName = string.Empty;
+    public string ContainerName;
+    public string ContainerImage;
+    public string ImagePullPolicy = "Always";
+    public string ImagePullSecret;
+    public bool K8SRequestFormSuccess;
+    
+    public List<V1EnvVar> EnvVars = new()
+    {
+        new V1EnvVar { Name = "", Value = "" }
+    };
+    
+    List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+    public async Task Validate()
+    {
+        await _form.Validate();
+        if (_form.IsValid)
+        {
+            if (string.IsNullOrEmpty(ContainerName))
+                ContainerName = PodName;
+        }
+    }
+    
+    private void AddEnvVar()
+    {
+        EnvVars.Add(new V1EnvVar("", ""));
+    }
+    private void DeleteEnvVar(V1EnvVar env)
+    {
+        EnvVars.Remove(env);
+    }
+
+}

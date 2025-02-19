@@ -18,7 +18,7 @@
 
 @attribute [Authorize]
 
-<AuthorizeView Context="AuthViewContext">
+<AuthorizeView Context="authViewContext">
     <Authorized>
         <MudGrid Spacing="2">
             <MudItem xs="4">
@@ -41,88 +41,13 @@
                         else
                         {
                             <MudItem xs="12">
-                                <MudPaper Class="ma-2 pa-2">
-                                    <MudForm @ref="_form" @bind-IsValid="@_k8SRequestFormSuccess">
-                                        <MudGrid>
-                                            <MudItem xs="12">
-                                                <MudText Typo="Typo.h6">Kubernetes Pod Resource Request</MudText>
-                                            </MudItem>
-                                            <!-- Pod Name -->
-                                            <MudItem xs="6">
-                                                <MudTextField @bind-Value="_podName" Label="Pod Name" Required="true"/>
-                                            </MudItem>
-                                            <!-- Container Name -->
-                                            <MudItem xs="6">
-                                                <MudTextField @bind-Value="_containerName" Label="Container Name" Required="false"/>
-                                            </MudItem>
-                                            <!-- Container Image -->
-                                            <MudItem xs="6">
-                                                <MudTextField @bind-Value="_containerImage" Label="Container Image" Required="true"/>
-                                            </MudItem>
-                                            <!-- Image Pull Policy -->
-                                            <MudItem xs="6">
-                                                <MudSelect @bind-Value="_imagePullPolicy" Label="Image Pull Policy" Required="true">
-                                                    <MudSelectItem Value="@("Always")">Always</MudSelectItem>
-                                                    <MudSelectItem Value="@("IfNotPresent")">IfNotPresent</MudSelectItem>
-                                                    <MudSelectItem Value="@("Never")">Never</MudSelectItem>
-                                                </MudSelect>
-                                            </MudItem>
-                                            <!-- Image Pull Secret -->
-                                            <MudItem xs="6">
-                                                <MudTextField @bind-Value="_imagePullSecret" Label="Image Pull Secret"/>
-                                            </MudItem>
-                                            <MudItem xs="12" Class="mt-2">
-                                                <MudGrid>
-                                                    <MudItem xs="6">
-                                                        <MudText Typo="Typo.h6">Environment Variables</MudText>
-                                                    </MudItem>
-                                                    <MudItem xs="6">
-                                                        <MudIconButton
-                                                            Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                                            Color="Color.Primary"
-                                                            OnClick="@(() => AddEnvVar())"/>
-                                                    </MudItem>
-                                                </MudGrid>
-                                            </MudItem>
-                                            <MudItem xs="12">
-
-                                                <MudTable Items="_envVars" Bordered="false" Dense="true">
-                                                    <HeaderContent>
-                                                        <MudTh>Name</MudTh>
-                                                        <MudTh>Value</MudTh>
-                                                        <MudTh></MudTh>
-                                                    </HeaderContent>
-                                                    <RowTemplate>
-                                                        <MudTd>
-                                                            <MudTextField @bind-Value="context.Name" Placeholder="Enter name"/>
-                                                        </MudTd>
-                                                        <MudTd>
-                                                            <MudTextField @bind-Value="context.Value" Placeholder="Enter value"/>
-                                                        </MudTd>
-                                                        <MudTd>
-                                                            <MudGrid>
-                                                                <MudItem xs="6">
-
-                                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                                                   Size="Size.Small"
-                                                                                   Color="Color.Error"
-                                                                                   OnClick="@(() => DeleteEnvVar(context))">
-                                                                    </MudIconButton></MudItem></MudGrid>
-                                                        </MudTd>
-                                                    </RowTemplate>
-                                                </MudTable>
-                                            </MudItem>
-
-                                            <!-- Submit Button -->
-                                            
-                                        </MudGrid>
-                                    </MudForm>
-                                </MudPaper>
+                                <ResourceRequestForm @ref=_resourceRequestForm></ResourceRequestForm>
                             </MudItem>
+                                
                         }
                         <MudItem xs="12" Class="ma-2">
                             <MudStack Row="true">
-                                <MudButton OnClick="@(() => RequestK8SResourceAsync(AuthViewContext.User.FindFirst("preferred_username")?.Value))"
+                                <MudButton OnClick="@(() => RequestK8SResourceAsync(authViewContext.User.FindFirst("preferred_username")?.Value))"
                                            Color="Color.Primary" Variant="Variant.Filled"
                                            >
                                     Request Resource
@@ -157,17 +82,15 @@
 </AuthorizeView>
 
 @code {
-    private MudForm _form;
+    
     private string _resourceTypeSelected = "Predefined";
     private PredefinedResourceDropdown _predefinedResourceDropdown;
     private CancellationTokenSource _cancellationTokenSource = new();
-    private bool _k8SRequestFormSuccess;
+    private ResourceRequestForm _resourceRequestForm;
+    
     private KubeXTermTabPanel _kubeXtermTabPanel;
     private string _cmd = "/usr/local/bin/start.sh"; //"/bin/sh";*/
-    private List<V1EnvVar> _envVars = new()
-    {
-        new V1EnvVar { Name = "", Value = "" }
-    };
+
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -186,26 +109,6 @@
         await _cancellationTokenSource.CancelAsync();
         _cancellationTokenSource?.Dispose();
     }
-    
-    private void AddEnvVar()
-    {
-        _envVars.Add(new V1EnvVar("", ""));
-    }
-    private void DeleteEnvVar(V1EnvVar env)
-    {
-        _envVars.Remove(env);
-    }
-    
-
-    // Form fields
-    private string _podName = string.Empty;
-    private string _containerName;
-    private string _containerImage;
-    private string _imagePullPolicy = "Always";
-    private string _imagePullSecret;
-    
-
-    List<int> _sizeOptions = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
     
     /// <summary>
     /// Request Kubernetes resource asynchronously.
@@ -235,12 +138,9 @@
             return;
         }
 
-        await _form.Validate();
+        await _resourceRequestForm.Validate();
         
-        if (string.IsNullOrEmpty(_containerName))
-            _containerName = _podName;
-
-        if (_k8SRequestFormSuccess)
+        if (_resourceRequestForm.K8SRequestFormSuccess)
         {
             // Create the pod definition
             var pod = new V1Pod
@@ -249,7 +149,7 @@
                     Kind = "Pod",
                     Metadata = new V1ObjectMeta
                     {
-                        Name = _podName
+                        Name = _resourceRequestForm.PodName
                     },
                     Spec = new V1PodSpec
                     {
@@ -257,17 +157,17 @@
                         {
                         new V1Container
                         {
-                            Name = _containerName,
-                            Image = _containerImage,
-                            ImagePullPolicy = _imagePullPolicy,
-                            Env = _envVars
+                            Name = _resourceRequestForm.ContainerName,
+                            Image = _resourceRequestForm.ContainerImage,
+                            ImagePullPolicy = _resourceRequestForm.ImagePullPolicy,
+                            Env = _resourceRequestForm.EnvVars
                         }
                     },
                         ImagePullSecrets =
                         [
                             new V1LocalObjectReference
                             {
-                                Name = _imagePullSecret
+                                Name = _resourceRequestForm.ImagePullSecret
                             }
                         ]
                     }
@@ -277,6 +177,11 @@
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="pod"></param>
+    /// <returns></returns>
     private async Task<bool> CreatePod(V1Pod pod)
     {
         try
@@ -290,30 +195,6 @@
             return false;
         }
         return true;
-    }
-    
-    /// <summary>
-    /// Parses a pod from a JSON string.
-    /// </summary>
-    /// <param name="jsonContent"></param>
-    /// <returns></returns>
-    private async Task<V1Pod> ParsePodsFromJson(string jsonContent)
-    {
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            WriteIndented = true,
-            Converters =
-            {
-                new JsonStringEnumConverter()
-            } 
-        };
-
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(jsonContent));
-        // Parse the JSON string to a Kubernetes object
-        var pod = await System.Text.Json.JsonSerializer.DeserializeAsync<V1Pod>(stream, options, _cancellationTokenSource.Token);
-
-        return pod;
     }
     
     private Dictionary<string, string> _rowConnectionTypes = new();
@@ -332,6 +213,5 @@
         _rowConnectionTypes[podName] = connectionType;
     }
     
-
 }
 

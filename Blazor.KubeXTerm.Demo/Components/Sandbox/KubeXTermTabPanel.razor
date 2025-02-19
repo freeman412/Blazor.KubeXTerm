@@ -1,7 +1,6 @@
 ﻿@using Blazor.KubeXTerm.Components
 @using Blazor.KubeXTerm.Demo.Services
 
-
 <MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
     <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
              PanelClass="border-radius-bottom"
@@ -116,7 +115,6 @@
             {
                 //if the active tab is being removed
                 _activeTabIndex = 1;
-
                 _activeTabIndex = 0; ;
             }
         }
