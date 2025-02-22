@@ -18,18 +18,29 @@
 </div>
 
 @code{
+    /// <summary>
+    /// The number of pixels to subtract from total viewport height to determine full height of terminal.
+    /// calc(100vh-HeightDifferential).
+    /// The height of the Terminal Window must be relative to the viewport height.
+    /// </summary>
     [Parameter]
-    public string Style { get; set; } = $"padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px";
+    public string HeightDifferential { get; set; } = "205px";
     
+    [Parameter] public string Style { get; set; } = "padding-left: 10px; padding-right: 10px; padding-top: 10px; margin-bottom: 15px;";
+
+    protected override void OnParametersSet()
+    {
+        Style = $"{Style} height: calc(100vh - {HeightDifferential}px); ";
+    }
+
     //The main Xterm Object
     private Xterm _term;
     private TerminalOptions _options = new TerminalOptions
         {
             CursorBlink = true,
             CursorStyle = CursorStyle.Bar,
-            FontFamily = "IBM Plex Mono",
+            FontFamily = "GT-America-Mono, monospace",
             DisableStdin = false,
-            
 
             Theme =
             {

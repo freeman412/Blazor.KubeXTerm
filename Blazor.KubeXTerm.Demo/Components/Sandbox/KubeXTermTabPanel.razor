@@ -1,31 +1,30 @@
 ﻿@using Blazor.KubeXTerm.Components
 @using Blazor.KubeXTerm.Demo.Services
 
-<MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
-    <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-             PanelClass="border-radius-bottom"
-             TabHeaderClass="border-radius-top"
-             Elevation="4"
-             KeepPanelsAlive>
-        <ChildContent>
+<MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
+         PanelClass="border-radius-bottom"
+         TabHeaderClass="border-radius-top"
+         Elevation="4"
+         KeepPanelsAlive>
+    <ChildContent>
 
-            @foreach (var tab in _tabs)
-            {
-                <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
-                             ShowCloseIcon="@tab.ShowCloseIcon"
-                             Icon="@Icons.Material.Filled.Terminal"
-                             @key="@tab.Id">
-                    @tab.K8STerminalFragment
-                </MudTabPanel>
-            }
-        </ChildContent>
-        <TabPanelHeader>
-            <MudTooltip Text="Close tab. All data will be lost">
-                <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-            </MudTooltip>
-        </TabPanelHeader>
-    </MudTabs>
-</MudPaper>
+        @foreach (var tab in _tabs)
+        {
+            <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
+                         ShowCloseIcon="@tab.ShowCloseIcon"
+                         Icon="@Icons.Material.Filled.Terminal"
+                         @key="@tab.Id">
+                @tab.K8STerminalFragment
+            </MudTabPanel>
+        }
+    </ChildContent>
+    <TabPanelHeader>
+        <MudTooltip Text="Close tab. All data will be lost">
+            <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
+        </MudTooltip>
+    </TabPanelHeader>
+</MudTabs>
+
 
 @code {
     
@@ -47,6 +46,7 @@
                 K8STerminalFragment = builder =>
                 {
                     builder.OpenComponent<WelcomeTerminal>(0);
+                    builder.AddComponentParameter(1, "HeightDifferential", "205");
                     builder.CloseComponent();
                 }
 
@@ -72,6 +72,7 @@
             {
                 builder.OpenComponent<KubernetesTerminal>(0);
                 builder.AddAttribute(1, "PodName", podName);
+                builder.AddComponentParameter(5, "HeightDifferential", "205");
                 builder.AddComponentParameter(2, "K8sContext", KubeXTermK8SManager.K8SClient);
                 builder.AddComponentParameter(3, "ConnectionType", connectionType);
                 builder.AddComponentParameter(4, "Command", command.Trim().Split(" "));

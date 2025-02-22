@@ -26,8 +26,16 @@
 
 @code 
 {
+    /// <summary>
+    /// The number of pixels to subtract from total viewport height to determine full height of terminal.
+    /// calc(100vh-HeightDifferential).
+    /// The height of the Terminal Window must be relative to the viewport height.
+    /// </summary>
     [Parameter]
-    public string Style { get; set; } = $"padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px";
+    public string HeightDifferential { get; set; } = "205px";
+    
+    [Parameter] public string Style { get; set; } = "padding-left: 10px; padding-right: 10px; padding-top: 10px; margin-bottom: 15px;";
+    
     [Parameter]
     public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] 
@@ -39,10 +47,7 @@
     [Parameter, EditorRequired]
     public required string ConnectionType {get; set;}
     [Parameter]
-    public string[] Command { get; set; } =
-    [
-        "/bin/bash"
-    ];
+    public string[] Command { get; set; } = ["/bin/bash"];
 
     //The main Xterm Object
     private Xterm _term;
@@ -72,6 +77,8 @@
     /// </summary>
     protected override void OnParametersSet()
     {
+        Style = $"{Style} height: calc(100vh - {HeightDifferential}px); ";
+        
         bool convertEol = false;
         bool disableStdin = false;
         // Update _options based on ConnectionType
@@ -85,7 +92,7 @@
         {
                 CursorBlink = true,
                 CursorStyle = CursorStyle.Bar,
-                FontFamily = "monospace",
+                FontFamily = "IBM Plex Mono, monospace",
                 ConvertEOL = convertEol,
                 DisableStdin = disableStdin,
 
@@ -114,7 +121,7 @@
         await FitTerminal();
         StateHasChanged();
     }
-
+    
     /// <summary>
     /// Registers the viewport watcher and performs the initial resize of the terminal.
     /// </summary>

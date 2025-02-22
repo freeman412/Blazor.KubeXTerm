@@ -6,28 +6,26 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-
   <ItemGroup>
     <PackageReference Include="Blazor.DiscoBall" Version="1.0.3" />
+    <PackageReference Include="CodeBeam.MudBlazor.Extensions" Version="8.0.0" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />
-    <PackageReference Include="KubernetesClient" Version="16.0.1" />
+    <PackageReference Include="KubernetesClient" Version="16.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.12" />
-    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.4.0" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.5.0" />
     <PackageReference Include="MudBlazor" Version="8.2.0" />
     <PackageReference Include="MudBlazor.ThemeManager" Version="2.1.0" />
     <PackageReference Include="XtermBlazor" Version="2.1.2" />
   </ItemGroup>
-
-
+  
   <ItemGroup>
     <ProjectReference Include="..\Blazor.KubeXTerm\Blazor.KubeXTerm.csproj" />
   </ItemGroup>
 
-
   <ItemGroup>
     <Folder Include="Development\unsafe_uploads\" />
-    <Folder Include="Pods\" />
     <Folder Include="Utils\" />
     <Folder Include="wwwroot\js\" />
   </ItemGroup>
+  
 </Project>

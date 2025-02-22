@@ -3,6 +3,7 @@ using System.Text.Json;
 using Blazor.KubeXTerm.Demo.Components;
 using Blazor.KubeXTerm.Demo.Services;
 using MudBlazor.Services;
+using MudExtensions.Services;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -124,7 +125,6 @@ else
     });
 }
 
-
 JsonWebKeySet FetchJwks(string url)
 {
     var result = httpClient.GetAsync(url).Result;
@@ -148,6 +148,8 @@ builder.Services.AddMudServices();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudExtensions();
 
 builder.Services.AddScoped<HttpClient>(sp => new HttpClient
 {
@@ -198,7 +200,7 @@ app.MapPost("/logout", async (HttpContext context) =>
     context.Response.Redirect("/"); // Redirect to home for non-Keycloak users
 });
 
-//You would need to implement the settings in keycload first - not sure i'm goign to use this
+//You would need to implement the settings in keycload first - not sure i'm going to use this
 app.MapPost("/logout/backchannel", async (HttpContext context) =>
 {
     using var reader = new StreamReader(context.Request.Body);
@@ -223,7 +225,6 @@ app.MapPost("/logout/backchannel", async (HttpContext context) =>
     context.Response.StatusCode = 200;
     await context.Response.WriteAsync("Logout successful");
 });
-
 
 app.MapPost("/login", async (HttpContext context) =>
 {
