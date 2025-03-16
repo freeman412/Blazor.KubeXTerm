@@ -20,9 +20,13 @@
     public async Task PopulatePredifinedPodsAsync()
     {
         _preDefinedPodResources.Clear();
-        string directoryPath = Path.Combine(WebHostEnvironment.ContentRootPath, 
-            WebHostEnvironment.EnvironmentName,
+        string directoryPath = Path.Combine(WebHostEnvironment.ContentRootPath,
             "PredefinedResources");
+        
+        if(!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
         foreach (var filePath in Directory.GetFiles(directoryPath, "*.json"))
         {
             try
