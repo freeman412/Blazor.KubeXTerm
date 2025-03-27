@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 #Rider Stuff
 .idea
+
+# Mac Stuff
+.DS_Store

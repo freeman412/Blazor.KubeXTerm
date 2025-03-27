@@ -15,7 +15,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Load configuration from appsettings.json & environment variables
 var configuration = builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true) // Load appsettings.json
-    .AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true) // Load appsettings.Development.json
     .AddEnvironmentVariables() // Override with environment variables if set
     .Build();
 
