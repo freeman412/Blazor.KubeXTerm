@@ -28,7 +28,7 @@ namespace Blazor.KubeXTerm.Services
 
         /// <summary>
         /// Sends the resize command to the kubernetes websocket on channel 4
-        /// Kinda irritating this is noto a function in the .net K8s api already
+        /// Kinda irritating this is not a function in the .net K8s api already
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="cols"></param>

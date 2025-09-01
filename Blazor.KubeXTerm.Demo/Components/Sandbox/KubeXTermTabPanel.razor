@@ -28,10 +28,10 @@
 </MudPaper>
 
 @code {
-    
+
     private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
-        
+
     /// <summary>
     /// 
     /// </summary>
@@ -56,7 +56,7 @@
             StateHasChanged();
         }
     }
-    
+
     /// <summary>
     /// 
     /// </summary>
@@ -83,7 +83,8 @@
         _activeTabIndex = _tabs.Count - 1; // Automatically switch to the new tab
         StateHasChanged(); // Ensure the UI updates
     }
-    
+
+
     /// <summary>
     ///
     /// </summary>

@@ -1,12 +1,14 @@
 ﻿@using Blazor.KubeXTerm.Demo.Components.Dialogs
 @using Blazor.KubeXTerm.Demo.Services
 @using Blazor.KubeXTerm.Utils
+@using MudBlazor.Extensions.Services
 @using k8s
 @using k8s.Models
 
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject KubeXTermK8SManager KubeXTermK8SManager
+@inject KubeXTermDrawerService KubeXTermPanelService;
 
 <MudPaper Class="ma-2">
     <MudItem xs="12">
@@ -85,7 +87,7 @@
                             <CellTemplate>
                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Bash, Cmd))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Bash, "/bin/bash"))">
                                         @($"Exec Shell")
                                     </MudMenuItem>
                                     <MudMenuItem OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
@@ -154,7 +156,7 @@
 </MudPaper>
 
 @code {
-    
+
     [Parameter]
     public KubeXTermTabPanel KubeXTermTabPanel { get; set; }
     [Parameter]
@@ -182,7 +184,13 @@
             }
         }
     }
-    
+
+    private void AddTerminalToDrawer(string podName, string connectionType, string command=null)
+    {
+        KubeXTermPanelService.AddTerminalToDrawer(podName, connectionType, "/bin/bash");
+        StateHasChanged();
+    }
+
     private void ShowKubernetesErrorDialog(string errorMessage)
     {
         var parameters = new DialogParameters

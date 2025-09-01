@@ -1,0 +1,31 @@
+﻿@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div id="@_hostId" class="kxterm-drawer-host">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public Guid DrawerGuid { get; set; }
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    private string _hostId => $"drawer-host-{DrawerGuid:N}";
+    private bool _registered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_registered)
+        {
+            await JS.InvokeVoidAsync("kxt.registerDrawerAdaptiveFit", _hostId);
+            _registered = true;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_registered)
+        {
+            await JS.InvokeVoidAsync("kxt.unregisterDrawerAdaptiveFit", _hostId);
+        }
+    }
+}

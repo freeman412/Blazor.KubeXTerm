@@ -3,6 +3,7 @@ using System.Text.Json;
 using Blazor.KubeXTerm.Demo.Components;
 using Blazor.KubeXTerm.Demo.Services;
 using MudBlazor.Services;
+using MudBlazor.Extensions.Services;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -154,8 +155,11 @@ builder.Services.AddScoped<HttpClient>(sp => new HttpClient
     BaseAddress = new Uri("https://localhost:44317/") // Set to your API's base URL
 });
 
+//Drawer service to manage the drawer state
+builder.Services.AddScoped<DrawerService>();
+builder.Services.AddScoped<KubeXTermDrawerService>();
 // Register KubeXTermK8SManager as a service
-builder.Services.AddScoped<KubeXTermK8SManager>();
+builder.Services.AddScoped<KubeXTermK8SManager>(); 
 
 var app = builder.Build();
 

@@ -1,0 +1,31 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "name": "hashcat",
+        "namespace": "default"
+    },
+    "spec": {
+        "containers": [
+            {
+                "env": [
+                    {
+                        "name": "DYNAMIC_USER",
+                        "value": "david"
+                    }
+                ],
+                "image": "git.freemancraft.com/david/dynamic_user_hashcat",
+                "imagePullPolicy": "Always",
+                "name": "hashcat",
+                "resources": {}
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "imagePullSecrets": [
+            {
+                "name": "git-freemancraft-secret"
+            }
+        ]
+    }
+}

@@ -1,4 +1,52 @@
-﻿
+﻿.kxterm-drawer-host {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Ensure parent content area also allows flex growth (adjust selectors if different) */
+.mudx-drawer, .mudx-bottom-drawer, .mud-drawer, .mudx-drawer-content {
+    min-height: 0;
+}
+
+/* Host flex chain */
+.kxterm-terminal-host {
+    display:flex;
+    flex:1 1 auto;
+    flex-direction:column;
+    min-height:0;
+    height:100%;
+    width:100%;
+}
+
+/* Rounded shell around terminal */
+.kxterm-shell {
+    display:flex;
+    flex:1 1 auto;
+    min-height:0;
+    border-radius:10px;
+    background:#282a36;
+    overflow:hidden; /* clip xterm canvas corners */
+    padding:0; /* padding inside could distort fit; keep zero */
+}
+
+/* Xterm element should stretch */
+.kxterm-shell .xterm, .kxterm-xterm {
+    flex:1 1 auto;
+    min-height:0;
+}
+
+/* Optional: avoid padding collapsing terminal space */
+.kxterm-drawer-host .terminal-wrapper {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
 .border-radius-bottom {
     border-radius: 0 0 10px 10px;
 }
