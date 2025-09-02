@@ -24,7 +24,6 @@ public class KubeXTermDrawerService
 
         var cmdParts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var drawerGuid = Guid.NewGuid();
-        var shortGuid = drawerGuid.ToString("N")[..6];
 
         RenderFragment fragment = builder =>
         {
@@ -47,7 +46,7 @@ public class KubeXTermDrawerService
         {
             DrawerGuid = drawerGuid,
             ChildContent = fragment,
-            Title = $"{podName} • {shortGuid}",
+            Title = $"{podName}",
             InitialWidth = DefaultWidth,
             InitialHeight = DefaultHeight,
             CurrentWidth = DefaultWidth,      // Seed so stacking math is correct immediately

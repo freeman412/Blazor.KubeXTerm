@@ -87,7 +87,7 @@
                             <CellTemplate>
                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Bash, "/bin/bash"))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
                                         @($"Exec Shell")
                                     </MudMenuItem>
                                     <MudMenuItem OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
@@ -187,7 +187,7 @@
 
     private void AddTerminalToDrawer(string podName, string connectionType, string command=null)
     {
-        KubeXTermPanelService.AddTerminalToDrawer(podName, connectionType, "/bin/bash");
+        KubeXTermPanelService.AddTerminalToDrawer(podName, connectionType, command);
         StateHasChanged();
     }
 
