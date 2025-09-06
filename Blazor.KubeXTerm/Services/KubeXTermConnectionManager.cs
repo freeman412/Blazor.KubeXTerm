@@ -22,6 +22,10 @@ namespace Blazor.KubeXTerm.Services
         private const int MaxHistoryBytes = 256 * 1024;
         private int _historyBytes;
 
+        // When true, we are in an interactive TTY session (e.g., vim/htop). In this mode
+        // we should not buffer/replay output because TUIs send incremental escape sequences.
+        private bool _isInteractiveTty;
+
         public KubeXTermConnectionManager(IKubernetes k8SContext, string @namespace)
         {
             _k8SContext = k8SContext;
@@ -38,9 +42,18 @@ namespace Blazor.KubeXTerm.Services
         {
             _attachedTerminal = term;
             // Flush existing history into this terminal
-            foreach (var chunk in _history)
+            if (!_isInteractiveTty)
             {
-                try { _ = _attachedTerminal.Write(chunk); } catch { /* view may be gone mid-flush; ignore */ }
+                foreach (var chunk in _history)
+                {
+                    try { _ = _attachedTerminal.Write(chunk); } catch { /* view may be gone mid-flush; ignore */ }
+                }
+            }   
+            else
+            {
+                // For TUIs, do not replay buffered bytes. Ask the app to repaint to get a clean screen.
+                // Ctrl+L (FF) is a common repaint; most TUIs (including vim) honor it.
+                // Do not inject Ctrl+L automatically here; some setups echo it visibly (^L).
             }
         }
 
@@ -51,6 +64,9 @@ namespace Blazor.KubeXTerm.Services
 
         private void AppendHistory(string chunk)
         {
+            // Do not buffer interactive TTY output; replaying it causes stray control bytes on reattach.
+            if (_isInteractiveTty) return;
+
             _history.Enqueue(chunk);
             _historyBytes += Encoding.UTF8.GetByteCount(chunk);
             while (_historyBytes > MaxHistoryBytes && _history.TryDequeue(out var removed))
@@ -80,6 +96,7 @@ namespace Blazor.KubeXTerm.Services
 
         public async Task ExecInPod(string podname, string? containerName, string[] cmd)
         {
+            _isInteractiveTty = true; // interactive TTY session
             _webSocket = await _k8SContext.WebSocketNamespacedPodExecAsync(
                 name: podname, @namespace: _namespace, container: containerName,
                 command: cmd, stderr: true, stdin: true, stdout: true, tty: true
@@ -105,10 +122,11 @@ namespace Blazor.KubeXTerm.Services
                 var t = _attachedTerminal;
                 if (t != null) { try { await t.WriteLine("WebSocket connection closed."); } catch { } }
             }
-        }
+        }               
 
         public async Task StdOutInPod(string podname, string? containerName)
         {
+            _isInteractiveTty = false; // logs/attach stdout only (non-interactive)
             _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname, @namespace: _namespace, container: containerName,
                 stderr: false, stdin: false, stdout: true, tty: false
@@ -131,6 +149,7 @@ namespace Blazor.KubeXTerm.Services
 
         public async Task StdErrInPod(string podname, string? containerName)
         {
+            _isInteractiveTty = false; // stderr only (non-interactive)
             _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname, @namespace: _namespace, container: containerName,
                 stderr: true, stdin: false, stdout: false, tty: false
@@ -139,7 +158,7 @@ namespace Blazor.KubeXTerm.Services
             var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
-            var stderrStream = demux.GetStream(2, 1);
+            var stderrStream = demux.GetStream(2, 2);
             var stderrTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
             await Task.WhenAny(stderrTask).ConfigureAwait(false);
 
@@ -153,6 +172,7 @@ namespace Blazor.KubeXTerm.Services
 
         public async Task AllLogsAsync(string podname, string? containerName)
         {
+            _isInteractiveTty = false; // log stream (non-interactive)
             var taskStream = _k8SContext.CoreV1.ReadNamespacedPodLogAsync(podname, _namespace, follow: true);
             Stream logStream = await taskStream;
             var logTask = Task.Run(async () => await ReadStream(logStream).ConfigureAwait(false));
@@ -168,6 +188,7 @@ namespace Blazor.KubeXTerm.Services
 
         public async Task LogsInPodAync(string podname, string? containerName)
         {
+            _isInteractiveTty = false; // combined stdout+stderr logs (non-interactive)
             _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
                 name: podname, @namespace: _namespace, container: containerName,
                 stderr: true, stdin: false, stdout: true, tty: false
@@ -177,7 +198,7 @@ namespace Blazor.KubeXTerm.Services
             demux.Start();
 
             var stdoutStream = demux.GetStream(1, 1);
-            var stderrStream = demux.GetStream(2, 1);
+            var stderrStream = demux.GetStream(2, 2);
             var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
             var stderrTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
             await Task.WhenAny(stdoutTask, stderrTask).ConfigureAwait(false);
