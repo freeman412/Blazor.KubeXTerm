@@ -51,7 +51,7 @@ public class KubeXTermDrawerService
             InitialWidth = DefaultWidth,
             InitialHeight = DefaultHeight,
             CurrentWidth = DefaultWidth,      // Seed so stacking math is correct immediately
-            //CurrentHeight = DefaultHeight
+            CurrentHeight = DefaultHeight
         };
 
         _drawerService.AddDrawer(model);

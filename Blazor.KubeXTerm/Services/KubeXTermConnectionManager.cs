@@ -160,28 +160,46 @@ namespace Blazor.KubeXTerm.Services
                 var t = _attachedTerminal;
                 if (t != null) { try { await t.WriteLine("WebSocket connection closed."); } catch { } }
             }
-        }               
+        }
 
-        public async Task StdOutInPod(string podname, string? containerName)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="podname"></param>
+        /// <returns></returns>
+        public async Task StdOutInPod(string podname, string containerName)
         {
-            _isInteractiveTty = false; // logs/attach stdout only (non-interactive)
             _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
-                name: podname, @namespace: _namespace, container: containerName,
-                stderr: false, stdin: false, stdout: true, tty: false
+                name: podname,
+                @namespace: _namespace,
+                container: containerName,
+                stderr: false,
+                stdin: false,
+                stdout: true,
+                tty: false // TTY is true to enable interactive terminal
+
             ).ConfigureAwait(false);
 
             var demux = new StreamDemuxer(_webSocket);
             demux.Start();
 
-            var stdoutStream = demux.GetStream(1, 1);
+            // Get stdin
+            var stdoutStream = demux.GetStream(1, 1); // Stdout channel
+
+            // Start tasks for reading stdout and stderr
             var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
+
+            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask).ConfigureAwait(false);
 
             if (!_disposedValue)
+            try
             {
-                AppendHistory("\r\nWebSocket connection closed.\r\n");
-                var t = _attachedTerminal;
-                if (t != null) { try { await t.WriteLine("WebSocket connection closed."); } catch { } }
+                await _attachedTerminal.WriteLine("WebSocket connection closed.");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
             }
         }
 

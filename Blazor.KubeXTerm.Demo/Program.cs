@@ -164,6 +164,10 @@ builder.Services.AddScoped<KubeXTermDrawerService>();
 builder.Services.AddScoped<KubeXTermK8SManager>(); 
 builder.Services.AddScoped<KubeXTermSessionRegistry>();
 
+//Bottom Dock Terminal Service
+builder.Services.AddScoped<BottomDockTerminalService>();
+builder.Services.AddScoped<BottomDockService>();
+
 var app = builder.Build();
 
 app.Use(async (context, next) =>

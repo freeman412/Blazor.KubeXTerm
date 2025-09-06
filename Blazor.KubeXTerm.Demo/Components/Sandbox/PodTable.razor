@@ -9,6 +9,7 @@
 @inject ISnackbar Snackbar
 @inject KubeXTermK8SManager KubeXTermK8SManager
 @inject KubeXTermDrawerService KubeXTermPanelService;
+@inject BottomDockTerminalService BottomDockService;
 
 <MudPaper Class="ma-2">
     <MudItem xs="12">
@@ -87,22 +88,22 @@
                             <CellTemplate>
                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
+                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
                                         @($"Exec Shell")
                                     </MudMenuItem>
-                                    <MudMenuItem OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                    <MudMenuItem OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Alllogs))">
                                         @($"All logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Logs))">
+                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Logs))">
                                         @($"Current logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stdout))">
                                         @($"stdout logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => KubeXTermTabPanel.AddTabCallback(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stderr))">
                                         @($"stderr logs")
                                     </MudMenuItem>
                                 </MudMenu>
@@ -188,6 +189,12 @@
     private void AddTerminalToDrawer(string podName, string connectionType, string command=null)
     {
         KubeXTermPanelService.AddTerminalToDrawer(podName, connectionType, command);
+        StateHasChanged();
+    }
+
+    private void AddTerminalToBottomDock(string podName, string connectionType, string command = null)
+    {
+        BottomDockService.AddTerminalToBottomDock(podName, connectionType, command);
         StateHasChanged();
     }
 
