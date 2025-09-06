@@ -158,6 +158,7 @@ builder.Services.AddScoped<HttpClient>(sp => new HttpClient
 //Drawer service to manage the drawer state
 builder.Services.AddScoped<DrawerService>();
 builder.Services.AddScoped<KubeXTermDrawerService>();
+
 // Register KubeXTermK8SManager as a service
 builder.Services.AddScoped<KubeXTermK8SManager>(); 
 

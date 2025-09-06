@@ -36,7 +36,7 @@ public class KubeXTermDrawerService
                 child.AddAttribute(2, "K8SContext", KubeXTermK8SManager.K8SClient);
                 child.AddAttribute(3, "ConnectionType", connectionType);
                 child.AddAttribute(4, "Command", cmdParts);
-                child.AddAttribute(5, "Style", "flex:1 1 auto;min-height:0;");
+                child.AddAttribute(5, "Style", "flex:1 1 auto;min-height:0; padding:5px");
                 child.CloseComponent();
             }));
             builder.CloseComponent();

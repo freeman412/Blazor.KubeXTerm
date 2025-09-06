@@ -23,7 +23,7 @@
 
 @code 
 {
-    [Parameter] public string Style { get; set; } = "flex:1 1 auto;min-height:0;";
+    [Parameter] public string Style { get; set; } = "flex:1 1 auto; min-height:0; padding:5px";
     [Parameter] public string Namespace { get; set; } = "default";
     [Parameter, EditorRequired] public required string PodName { get; set; }
     [Parameter] public string? ContainerName { get; set; }
