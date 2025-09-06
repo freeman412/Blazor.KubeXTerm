@@ -123,8 +123,8 @@ window.kxt.unregisterDrawerAutoFit = (hostId) => {
 };
 
 // Add missing aliases for the drawer host component
-window.kxt.registerDrawerAdaptiveFit = window.kxt.registerDrawerAutoFit;
-window.kxt.unregisterDrawerAdaptiveFit = window.kxt.unregisterDrawerAutoFit;
+//window.kxt.registerDrawerAdaptiveFit = window.kxt.registerDrawerAutoFit;
+//window.kxt.unregisterDrawerAdaptiveFit = window.kxt.unregisterDrawerAutoFit;
 
 window.kxterm = window.kxterm || {};
 

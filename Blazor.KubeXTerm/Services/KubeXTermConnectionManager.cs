@@ -41,6 +41,7 @@ namespace Blazor.KubeXTerm.Services
         public void AttachTerminal(Xterm term)
         {
             _attachedTerminal = term;
+
             // Flush existing history into this terminal
             if (!_isInteractiveTty)
             {
@@ -48,7 +49,7 @@ namespace Blazor.KubeXTerm.Services
                 {
                     try { _ = _attachedTerminal.Write(chunk); } catch { /* view may be gone mid-flush; ignore */ }
                 }
-            }   
+            }
             else
             {
                 // For TUIs, do not replay buffered bytes. Ask the app to repaint to get a clean screen.
@@ -304,6 +305,25 @@ namespace Blazor.KubeXTerm.Services
             {
                 _cancellationTokenSource.Cancel();
                 _cancellationTokenSource.Dispose();
+            }
+        }
+
+        // Add this new method
+        public async Task ForceRedrawAsync()
+        {
+            if (_attachedTerminal != null && _isInteractiveTty && _webSocket is { State: WebSocketState.Open })
+            {
+                try
+                {
+                    int rows = await _attachedTerminal.GetRows();
+                    int cols = await _attachedTerminal.GetColumns();
+                    
+                    // Force TUI redraw by sending a slight resize then correct size
+                    await SendResizeCommandAsync(rows - 1, cols);
+                    await Task.Delay(50);
+                    await SendResizeCommandAsync(rows, cols);
+                }
+                catch { /* ignore */ }
             }
         }
     }

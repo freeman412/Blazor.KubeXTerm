@@ -92,8 +92,8 @@
         }
         else
         {
-            // On reattach, send a resize to sync remote tty
-            await SendResize();
+            // On reattach, force TUI redraw for interactive sessions
+            await _kubeExecutor.ForceRedrawAsync();
         }
     }
 
