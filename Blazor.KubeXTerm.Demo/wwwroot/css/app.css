@@ -41,3 +41,36 @@
     }
 }
 
+/* Terminal container styles - CRITICAL for proper resizing */
+.kxterm-terminal-host {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0; /* Allows flex item to shrink below content size */
+    min-height: 0; /* Allows flex item to shrink below content size */
+}
+
+.kxterm-shell {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0; /* Critical - allows terminal to shrink */
+    min-height: 0; /* Critical - allows terminal to shrink */
+}
+
+.kxterm-xterm {
+    flex: 1 1 auto;
+    min-width: 0; /* Critical - allows terminal to shrink */
+    min-height: 0; /* Critical - allows terminal to shrink */
+}
+
+/* Drawer host styles */
+.kxterm-drawer-host {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+

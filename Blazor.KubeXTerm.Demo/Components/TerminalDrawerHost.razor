@@ -16,7 +16,7 @@
     {
         if (firstRender && !_registered)
         {
-            await JS.InvokeVoidAsync("kxt.registerDrawerAdaptiveFit", _hostId);
+            await JS.InvokeVoidAsync("kxt.registerDrawerAutoFit", _hostId);
             _registered = true;
         }
     }
@@ -25,7 +25,7 @@
     {
         if (_registered)
         {
-            await JS.InvokeVoidAsync("kxt.unregisterDrawerAdaptiveFit", _hostId);
+            await JS.InvokeVoidAsync("kxt.unregisterDrawerAutoFit", _hostId);
         }
     }
 }
