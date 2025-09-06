@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Blazor.KubeXTerm.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -161,6 +162,7 @@ builder.Services.AddScoped<KubeXTermDrawerService>();
 
 // Register KubeXTermK8SManager as a service
 builder.Services.AddScoped<KubeXTermK8SManager>(); 
+builder.Services.AddScoped<KubeXTermSessionRegistry>();
 
 var app = builder.Build();
 

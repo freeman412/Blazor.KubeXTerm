@@ -1,10 +1,11 @@
 ﻿@using XtermBlazor
 @using k8s
 @using Utils
-@using KubeXTerm.Services
+@using Blazor.KubeXTerm.Services
 
 @implements IAsyncDisposable
 @inject IJSRuntime JsRuntime
+@inject KubeXTermSessionRegistry Sessions
 
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -30,6 +31,7 @@
     [Parameter, EditorRequired] public required IKubernetes K8SContext { get; set; }
     [Parameter, EditorRequired] public required string ConnectionType { get; set; }
     [Parameter] public string[] Command { get; set; } = [ "/bin/bash" ];
+    [Parameter] public Guid? SessionId { get; set; }   // new
 
     private Xterm _term;
     private readonly HashSet<string> _addons = ["addon-fit"];
@@ -38,6 +40,7 @@
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private DotNetObjectReference<KubernetesTerminal> _dotNetRef;
     private ElementReference _hostRef;
+    private Guid _resolvedSessionId;
 
     protected override void OnParametersSet()
     {
@@ -64,16 +67,34 @@
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            // Register the host for resize observation
             await JsRuntime.InvokeVoidAsync("kxterm.register", _hostRef, _dotNetRef);
         }
     }
 
     private async Task OnFirstRender()
     {
-        _kubeExecutor = new KubeXTermConnectionManager(_term, K8SContext, Namespace);
+        _resolvedSessionId = SessionId.HasValue && SessionId.Value != Guid.Empty ? SessionId.Value : Guid.NewGuid();
+
+        bool isNew;
+        _kubeExecutor = Sessions.GetOrCreate(
+            _resolvedSessionId,
+            factory: () => new KubeXTermConnectionManager(K8SContext, Namespace),
+            out isNew);
+
+        // Attach current terminal view to running session (or fresh one)
+        _kubeExecutor.AttachTerminal(_term);
+
         await FitTerminal();
-        await StartTerminalConnection();
+
+        if (isNew)
+        {
+            await StartTerminalConnection();
+        }
+        else
+        {
+            // On reattach, send a resize to sync remote tty
+            await SendResize();
+        }
     }
 
     private async Task StartTerminalConnection()
@@ -94,11 +115,11 @@
         catch (Exception e)
         {
             Console.WriteLine($"Error in StartTerminalConnection: {e.Message}");
-            _term.WriteLine("Unable to initiate terminal connection.");
+            try { await _term.WriteLine("Unable to initiate terminal connection."); } catch { }
         }
     }
 
-    private async Task WriteToTerminal(string data) => await _kubeExecutor.WriteStream(data);
+    private Task WriteToTerminal(string data) => _kubeExecutor.WriteStream(data);
 
     private async Task SendResize()
     {
@@ -116,24 +137,24 @@
     }
 
     [JSInvokable]
-    public async Task FitNow() => await FitTerminal();
+    public Task FitNow() => FitTerminal();
 
     public async ValueTask DisposeAsync()
     {
         try
         {
+            _kubeExecutor?.DetachTerminal();
+
             if (_dotNetRef != null)
             {
                 await JsRuntime.InvokeVoidAsync("kxterm.unregister", _hostRef);
                 _dotNetRef.Dispose();
             }
-            _kubeExecutor?.DisposeAsync();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Dispose error: {ex.Message}");
         }
-
         _cancellationTokenSource.Cancel();
         _cancellationTokenSource.Dispose();
     }

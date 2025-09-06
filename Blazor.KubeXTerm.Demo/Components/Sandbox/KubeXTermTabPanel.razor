@@ -74,7 +74,9 @@
                 builder.AddAttribute(1, "PodName", podName);
                 builder.AddComponentParameter(2, "K8sContext", KubeXTermK8SManager.K8SClient);
                 builder.AddComponentParameter(3, "ConnectionType", connectionType);
-                builder.AddComponentParameter(4, "Command", command.Trim().Split(" "));
+                if (command != null)
+                    builder.AddComponentParameter(4, "Command", command.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                builder.AddAttribute(5, "SessionId", Guid.NewGuid()); // NEW: stable session per tab
                 builder.CloseComponent();
             }
         };

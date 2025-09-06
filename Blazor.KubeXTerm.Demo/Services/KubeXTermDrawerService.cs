@@ -37,6 +37,7 @@ public class KubeXTermDrawerService
                 child.AddAttribute(3, "ConnectionType", connectionType);
                 child.AddAttribute(4, "Command", cmdParts);
                 child.AddAttribute(5, "Style", "flex:1 1 auto;min-height:0; padding:5px");
+                child.AddAttribute(6, "SessionId", drawerGuid); // NEW: keep backend session across dock/undock
                 child.CloseComponent();
             }));
             builder.CloseComponent();
