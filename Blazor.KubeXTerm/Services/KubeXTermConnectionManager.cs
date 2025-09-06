@@ -26,6 +26,9 @@ namespace Blazor.KubeXTerm.Services
         // we should not buffer/replay output because TUIs send incremental escape sequences.
         private bool _isInteractiveTty;
 
+        // Add this field near your other private fields
+        private string _lineRemainder = string.Empty;
+
         public KubeXTermConnectionManager(IKubernetes k8SContext, string @namespace)
         {
             _k8SContext = k8SContext;
@@ -38,24 +41,34 @@ namespace Blazor.KubeXTerm.Services
             AttachTerminal(term);
         }
 
-        public void AttachTerminal(Xterm term)
+        public async Task AttachTerminal(Xterm term)
         {
             _attachedTerminal = term;
 
-            // Flush existing history into this terminal
-            if (!_isInteractiveTty)
+            Console.WriteLine($"AttachTerminal: _isInteractiveTty={_isInteractiveTty}, History count={_history.Count}, History bytes={_historyBytes}");
+
+            // For non-interactive sessions, restore history immediately in a single write
+            if (!_isInteractiveTty && _history.Count > 0)
             {
-                foreach (var chunk in _history)
+                try
                 {
-                    try { _ = _attachedTerminal.Write(chunk); } catch { /* view may be gone mid-flush; ignore */ }
+                    var sb = new StringBuilder();
+                    foreach (var chunk in _history)
+                        sb.Append(chunk);
+
+                    // Include any partial trailing line that hasn't been terminated yet
+                    if (!string.IsNullOrEmpty(_lineRemainder))
+                        sb.Append(_lineRemainder);
+
+                    await _attachedTerminal.Write(sb.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error replaying history: {ex.Message}");
                 }
             }
-            else
-            {
-                // For TUIs, do not replay buffered bytes. Ask the app to repaint to get a clean screen.
-                // Ctrl+L (FF) is a common repaint; most TUIs (including vim) honor it.
-                // Do not inject Ctrl+L automatically here; some setups echo it visibly (^L).
-            }
+
+            // For interactive sessions (TTY/TUIs), do nothing here.
         }
 
         public void DetachTerminal()
@@ -65,14 +78,38 @@ namespace Blazor.KubeXTerm.Services
 
         private void AppendHistory(string chunk)
         {
-            // Do not buffer interactive TTY output; replaying it causes stray control bytes on reattach.
+            // Do not buffer interactive TTY output; TUIs use incremental escape sequences.
             if (_isInteractiveTty) return;
 
-            _history.Enqueue(chunk);
-            _historyBytes += Encoding.UTF8.GetByteCount(chunk);
-            while (_historyBytes > MaxHistoryBytes && _history.TryDequeue(out var removed))
+            // Accumulate by lines so we can repaint cleanly on reattach
+            var text = (_lineRemainder ?? string.Empty) + (chunk ?? string.Empty);
+            _lineRemainder = string.Empty;
+
+            int start = 0;
+            for (int i = 0; i < text.Length; i++)
             {
-                _historyBytes -= Encoding.UTF8.GetByteCount(removed);
+                if (text[i] == '\n')
+                {
+                    // Include the newline in the stored line
+                    string line = text.Substring(start, i - start + 1);
+
+                    _history.Enqueue(line);
+                    _historyBytes += Encoding.UTF8.GetByteCount(line);
+
+                    // Trim by bytes cap
+                    while (_historyBytes > MaxHistoryBytes && _history.TryDequeue(out var removed))
+                    {
+                        _historyBytes -= Encoding.UTF8.GetByteCount(removed);
+                    }
+
+                    start = i + 1;
+                }
+            }
+
+            // Keep any trailing partial line to be completed by a future chunk
+            if (start < text.Length)
+            {
+                _lineRemainder = text.Substring(start);
             }
         }
 

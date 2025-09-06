@@ -14,8 +14,8 @@ public class KubeXTermDrawerService
     public event Action? DrawersChanged;
 
     // Tune these defaults to match what your BottomDrawer expects.
-    private const double DefaultWidth = 520;   // px
-    private const double DefaultHeight = 340;  // px
+    private const double DefaultWidth = 600;   // px
+    private const double DefaultHeight = 800;  // px
 
     public void AddTerminalToDrawer(string podName, string connectionType, string? command = null)
     {
