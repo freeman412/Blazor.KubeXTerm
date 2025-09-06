@@ -1,15 +1,15 @@
-﻿@implements IAsyncDisposable
+@implements IAsyncDisposable
 @inject IJSRuntime JS
 
-<div id="@_hostId" class="kxterm-drawer-host">
+<div id="@_hostId" class="kxterm-resize-host">
     @ChildContent
 </div>
 
 @code {
-    [Parameter] public Guid DrawerGuid { get; set; }
-    [Parameter] public RenderFragment ChildContent { get; set; }
+    [Parameter] public required Guid HostId { get; set; } = Guid.NewGuid();
+    [Parameter] public required RenderFragment ChildContent { get; set; }
 
-    private string _hostId => $"drawer-host-{DrawerGuid:N}";
+    private string _hostId => $"resize-host-{HostId:N}";
     private bool _registered;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

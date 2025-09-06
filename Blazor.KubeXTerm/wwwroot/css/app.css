@@ -1,4 +1,4 @@
-﻿.kxterm-drawer-host {
+﻿.kxterm-resize-host {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -41,7 +41,7 @@
         min-height: 0;
     }
 
-.kxterm-drawer-host .terminal-wrapper {
+.kxterm-resize-host .terminal-wrapper {
     flex: 1 1 auto;
     display: flex;
     min-height: 0;

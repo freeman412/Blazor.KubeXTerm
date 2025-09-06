@@ -27,8 +27,8 @@ public class KubeXTermDrawerService
 
         RenderFragment fragment = builder =>
         {
-            builder.OpenComponent<TerminalDrawerHost>(0);
-            builder.AddAttribute(1, "DrawerGuid", drawerGuid);
+            builder.OpenComponent<TerminalResizeHost>(0);
+            builder.AddAttribute(1, "HostId", drawerGuid);
             builder.AddAttribute(2, "ChildContent", (RenderFragment)(child =>
             {
                 child.OpenComponent<KubernetesTerminal>(0);
