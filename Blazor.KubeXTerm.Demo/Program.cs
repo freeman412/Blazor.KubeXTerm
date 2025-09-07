@@ -168,6 +168,9 @@ builder.Services.AddScoped<KubeXTermSessionRegistry>();
 builder.Services.AddScoped<BottomDockTerminalService>();
 builder.Services.AddScoped<BottomDockService>();
 
+// Add this line with your other service registrations
+builder.Services.AddScoped<KubeXTermTabPanelService>();
+
 var app = builder.Build();
 
 app.Use(async (context, next) =>

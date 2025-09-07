@@ -104,13 +104,13 @@
             if (ConnectionType == K8SConnectionType.Bash)
                 await _kubeExecutor.ExecInPod(PodName, ContainerName, Command);
             else if (ConnectionType == K8SConnectionType.Stdout)
-                await _kubeExecutor.StdOutInPod(PodName, ContainerName);
+                await _kubeExecutor.StdOutLogsAsync(PodName, ContainerName);
             else if (ConnectionType == K8SConnectionType.Logs)
-                await _kubeExecutor.LogsInPodAync(PodName, ContainerName);
+                await _kubeExecutor.LogsInPodAsync(PodName, ContainerName, 600);
             else if (ConnectionType == K8SConnectionType.Stderr)
-                await _kubeExecutor.StdErrInPod(PodName, ContainerName);
+                await _kubeExecutor.StdErrLogsAsync(PodName, ContainerName);
             else if (ConnectionType == K8SConnectionType.Alllogs)
-                await _kubeExecutor.AllLogsAsync(PodName, ContainerName);
+                await _kubeExecutor.LogsInPodAsync(PodName, ContainerName);
         }
         catch (Exception e)
         {

@@ -10,6 +10,7 @@
 @inject KubeXTermK8SManager KubeXTermK8SManager
 @inject KubeXTermDrawerService KubeXTermPanelService;
 @inject BottomDockTerminalService BottomDockService;
+@inject KubeXTermTabPanelService KubeXTermTabPanelService;
 
 <MudPaper Class="ma-2">
     <MudItem xs="12">
@@ -158,8 +159,8 @@
 
 @code {
 
-    [Parameter]
-    public KubeXTermTabPanel KubeXTermTabPanel { get; set; }
+
+
     [Parameter]
     public string Cmd { get; set; } = "/usr/local/bin/start.sh"; //"/bin/sh";
 
@@ -195,6 +196,7 @@
     private void AddTerminalToBottomDock(string podName, string connectionType, string command = null)
     {
         BottomDockService.AddTerminalToBottomDock(podName, connectionType, command);
+        KubeXTermTabPanelService.AddTab(podName, connectionType, command);
         StateHasChanged();
     }
 

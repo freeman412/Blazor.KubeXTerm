@@ -18,63 +18,118 @@
 
 @attribute [Authorize]
 
+<style>
+    .sandbox-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 200px); /* Account for AppBar, padding, and bottom dock space */
+        overflow: hidden;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+    
+    .sandbox-grid {
+        display: flex;
+        flex: 1 1 auto;
+        gap: 16px;
+        min-height: 0;
+        min-width: 0; /* Added this */
+        overflow: hidden;
+    }
+    
+    .sandbox-left-panel {
+        flex: 0 0 33.333333%; /* Equivalent to xs="4" in a 12-column grid */
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+    
+    .sandbox-right-panel {
+        flex: 1 1 auto; /* Equivalent to xs="8" in a 12-column grid */
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+    
+    .sandbox-scrollable {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+    
+    .sandbox-terminal-container {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+</style>
+
 <AuthorizeView Context="authViewContext">
     <Authorized>
-        <MudGrid Spacing="2">
-            <MudItem xs="4">
-                <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
-                    <MudGrid Spacing="2">
-                        <MudItem>
-                            <MudRadioGroup T="string" Name="Resource Type"
-                                           @bind-Value="@_resourceTypeSelected"
-                                           >
-                                <MudRadio T="string" Label="Predefined" Value="@("Predefined")"></MudRadio>
-                                <MudRadio T="string" Label="Manuel" Value="@("Manuel")"></MudRadio>
-                            </MudRadioGroup>
-                        </MudItem>
-                        @if (_resourceTypeSelected == "Predefined")
-                        {
-                        <MudItem xs="12" Class="ma-4">
-                            <PredefinedResourceDropdown @ref=_predefinedResourceDropdown></PredefinedResourceDropdown>
-                        </MudItem>
-                        }
-                        else
-                        {
-                            <MudItem xs="12">
-                                <ResourceRequestForm @ref=_resourceRequestForm></ResourceRequestForm>
+        <div class="sandbox-container">
+            <div class="sandbox-grid">
+                <div class="sandbox-left-panel">
+                    <MudPaper Class="ma-1 pa-1 sandbox-scrollable">
+                        <MudGrid Spacing="2">
+                            <MudItem>
+                                <MudRadioGroup T="string" Name="Resource Type"
+                                               @bind-Value="@_resourceTypeSelected"
+                                               >
+                                    <MudRadio T="string" Label="Predefined" Value="@("Predefined")"></MudRadio>
+                                    <MudRadio T="string" Label="Manuel" Value="@("Manuel")"></MudRadio>
+                                </MudRadioGroup>
                             </MudItem>
-                                
-                        }
-                        <MudItem xs="12" Class="ma-2">
-                            <MudStack Row="true">
-                                <MudButton OnClick="@(() => RequestK8SResourceAsync(authViewContext.User.FindFirst("preferred_username")?.Value))"
-                                           Color="Color.Primary" Variant="Variant.Filled"
-                                           >
-                                    Request Resource
-                                </MudButton>
+                            @if (_resourceTypeSelected == "Predefined")
+                            {
+                            <MudItem xs="12" Class="ma-4">
+                                <PredefinedResourceDropdown @ref=_predefinedResourceDropdown></PredefinedResourceDropdown>
+                            </MudItem>
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <ResourceRequestForm @ref=_resourceRequestForm></ResourceRequestForm>
+                                </MudItem>
+                                    
+                            }
+                            <MudItem xs="12" Class="ma-2">
+                                <MudStack Row="true">
+                                    <MudButton OnClick="@(() => RequestK8SResourceAsync(authViewContext.User.FindFirst("preferred_username")?.Value))"
+                                               Color="Color.Primary" Variant="Variant.Filled"
+                                               >
+                                        Request Resource
+                                    </MudButton>
 
-                                <UploadPredefinedResource
-                                    OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="12" Class="ma-4">
-                            <MudPaper Class="ma-2 pa-2">
-                                <MudTextField @bind-Value="_cmd" Label="Command" 
-                                              HelperText="Custom Command. Default is /usr/local/bin/start.sh">
-                                </MudTextField>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12">
-                            <PodTable KubeXTermTabPanel="_kubeXtermTabPanel" Cmd="@_cmd" ></PodTable>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="8">
-                <KubeXTermTabPanel @ref=_kubeXtermTabPanel ></KubeXTermTabPanel>
-            </MudItem>
-
-        </MudGrid>       
+                                    <UploadPredefinedResource
+                                        OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="12" Class="ma-4">
+                                <MudPaper Class="ma-2 pa-2">
+                                    <MudTextField @bind-Value="_cmd" Label="Command" 
+                                                  HelperText="Custom Command. Default is /usr/local/bin/start.sh">
+                                    </MudTextField>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <PodTable Cmd="@_cmd" ></PodTable>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </div>
+                <div class="sandbox-right-panel">
+                    <div class="sandbox-terminal-container">
+                        <KubeXTermTabPanel></KubeXTermTabPanel>
+                    </div>
+                </div>
+            </div>
+        </div>
     </Authorized>
     <NotAuthorized>
         Unauthorized
@@ -88,7 +143,6 @@
     private CancellationTokenSource _cancellationTokenSource = new();
     private ResourceRequestForm _resourceRequestForm;
     
-    private KubeXTermTabPanel _kubeXtermTabPanel;
     private string _cmd = "/usr/local/bin/start.sh"; //"/bin/sh";*/
 
     

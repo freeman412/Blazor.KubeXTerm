@@ -2,11 +2,15 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JsRuntime
 
-<div style="background-color: #282a36; margin-left: 10px;
+<div style="background-color: #282a36; 
     border-radius: 10px;
-    margin-right: 10px;
-    margin-top: 10px;
-    margin-bottom: 10px;" class="overflow-hidden">
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    margin: 5px;
+    overflow: hidden;">
         <Xterm
             Addons="_addons"
             @ref="_term"
@@ -19,7 +23,7 @@
 
 @code{
     [Parameter]
-    public string Style { get; set; } = $"padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px";
+    public string Style { get; set; } = "flex: 1 1 auto; min-height: 0; min-width: 0; padding: 10px;";
     
     //The main Xterm Object
     private Xterm _term;
