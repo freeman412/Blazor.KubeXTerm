@@ -87,27 +87,77 @@
                         <TemplateColumn Title="Actions"
                                         CellStyleFunc="@CellStyleFunc">
                             <CellTemplate>
+                                <MudStack Row="true" Spacing="0" >
+                                    <MudTooltip Text="Open Terminal In Bottom Dock">
+                                        <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
+                                                @($"Exec Shell")
+                                            </MudMenuItem>
+                                            <MudMenuItem OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                                @($"All logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Logs))">
+                                                @($"Current logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                @($"stdout logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                @($"stderr logs")
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                    </MudTooltip>
+                                    <MudTooltip Text="Open Terminal In Bottom Drawer">
                                 <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
                                         @($"Exec Shell")
                                     </MudMenuItem>
-                                    <MudMenuItem OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                    <MudMenuItem OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Alllogs))">
                                         @($"All logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Logs))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Logs))">
                                         @($"Current logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Stdout))">
                                         @($"stdout logs")
                                     </MudMenuItem>
                                     <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
-                                                 OnClick="@(() => AddTerminalToBottomDock(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                 OnClick="@(() => AddTerminalToDrawer(context.Item.Name(), K8SConnectionType.Stderr))">
                                         @($"stderr logs")
                                     </MudMenuItem>
                                 </MudMenu>
+                                    </MudTooltip>
+                                    <MudTooltip Text="Open Terminal In Tab Panel">
+                                        <MudMenu Icon="@Icons.Material.Filled.Terminal" Color="Color.Info">
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToTabPanel(context.Item.Name(), K8SConnectionType.Bash, "/usr/local/bin/start.sh"))">
+                                                @($"Exec Shell")
+                                            </MudMenuItem>
+                                            <MudMenuItem OnClick="@(() => AddTerminalToTabPanel(context.Item.Name(), K8SConnectionType.Alllogs))">
+                                                @($"All logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToTabPanel(context.Item.Name(), K8SConnectionType.Logs))">
+                                                @($"Current logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToTabPanel(context.Item.Name(), K8SConnectionType.Stdout))">
+                                                @($"stdout logs")
+                                            </MudMenuItem>
+                                            <MudMenuItem Disabled="@(context.Item.Status.Phase != "Running")"
+                                                         OnClick="@(() => AddTerminalToTabPanel(context.Item.Name(), K8SConnectionType.Stderr))">
+                                                @($"stderr logs")
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                    </MudTooltip>
+                                </MudStack>
                             </CellTemplate>
                         </TemplateColumn>
 
@@ -196,9 +246,16 @@
     private void AddTerminalToBottomDock(string podName, string connectionType, string command = null)
     {
         BottomDockService.AddTerminalToBottomDock(podName, connectionType, command);
+        StateHasChanged();
+    }
+
+    private void AddTerminalToTabPanel(string podName, string connectionType, string command = null)
+    {
         KubeXTermTabPanelService.AddTab(podName, connectionType, command);
         StateHasChanged();
     }
+
+    
 
     private void ShowKubernetesErrorDialog(string errorMessage)
     {
