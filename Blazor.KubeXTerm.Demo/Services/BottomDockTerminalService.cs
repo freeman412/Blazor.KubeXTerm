@@ -1,7 +1,7 @@
 ﻿using Blazor.KubeXTerm.Components;
 using Microsoft.AspNetCore.Components;
-using MudBlazor.Extensions.Components.DockedView;
-using MudBlazor.Extensions.Services;
+using MudBlazor.Addons.Components.DockedView;
+using MudBlazor.Addons.Services;
 
 namespace Blazor.KubeXTerm.Demo.Services
 {

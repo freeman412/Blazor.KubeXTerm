@@ -14,7 +14,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.12" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.4.0" />
     <PackageReference Include="MudBlazor" Version="8.11.0" />
-    <PackageReference Include="MudBlazor.Extensions" Version="1.1.7" />
+    <PackageReference Include="MudBlazor.Addons" Version="1.1.9" />
     <PackageReference Include="MudBlazor.ThemeManager" Version="2.1.0" />
     <PackageReference Include="XtermBlazor" Version="2.1.2" />
   </ItemGroup>

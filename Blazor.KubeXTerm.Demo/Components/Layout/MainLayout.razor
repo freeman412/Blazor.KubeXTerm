@@ -3,8 +3,10 @@
 
 @using Blazor.KubeXTerm.Demo.Services
 @using Microsoft.AspNetCore.Components.Authorization
-@using MudBlazor.Extensions.Components.Drawer
-@using MudBlazor.Extensions.Services
+@using MudBlazor.Addons.Components.DockedView
+@using MudBlazor.Addons.Components.Drawer
+@using MudBlazor.Addons.Components.Drawer
+@using MudBlazor.Addons.Services
 @inject DrawerService DrawerService
 @inject KubeXTermDrawerService KubeXTermPanelService
 
@@ -69,7 +71,7 @@
         @Body
         <BottomDrawerStack Drawers="DrawerService.Drawers" />
         <DrawerDock></DrawerDock>
-        <MudBlazor.Extensions.Components.DockedView.BottomDockView></MudBlazor.Extensions.Components.DockedView.BottomDockView>
+        <BottomDockView></BottomDockView>
     </MudMainContent>
 </MudLayout>
 
