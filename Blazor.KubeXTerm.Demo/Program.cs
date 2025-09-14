@@ -3,7 +3,7 @@ using System.Text.Json;
 using Blazor.KubeXTerm.Demo.Components;
 using Blazor.KubeXTerm.Demo.Services;
 using MudBlazor.Services;
-using MudBlazor.Addons.Services;
+using FreemanCraft.MudBlazorAddons.Services;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;

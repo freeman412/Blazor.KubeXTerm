@@ -1,8 +1,7 @@
 ﻿using Blazor.KubeXTerm.Components;
-using Blazor.KubeXTerm.Demo.Components;
 using Microsoft.AspNetCore.Components;
-using MudBlazor.Addons.Models;
-using MudBlazor.Addons.Services;
+using FreemanCraft.MudBlazorAddons.Models;
+using FreemanCraft.MudBlazorAddons.Services;
 
 namespace Blazor.KubeXTerm.Demo.Services;
 
