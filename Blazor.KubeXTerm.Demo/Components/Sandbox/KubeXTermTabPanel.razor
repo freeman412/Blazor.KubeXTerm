@@ -1,133 +1,99 @@
 ﻿@using Blazor.KubeXTerm.Components
 @using Blazor.KubeXTerm.Demo.Services
+@implements IDisposable
+@inject KubeXTermTabPanelService TabPanelService
 
-<MudPaper Class="ma-1 pa-1" Style="height: calc(100vh - 105px)">
-    <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
-             PanelClass="border-radius-bottom"
-             TabHeaderClass="border-radius-top"
-             Elevation="4"
-             KeepPanelsAlive>
-        <ChildContent>
+<style>
+    .kxterm-tab-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        min-width: 0; /* Added this */
+    }
+    
+    .kxterm-tabs-container {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0; /* Added this */
+        overflow: hidden;
+    }
+    
+    .kxterm-tab-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0; /* Added this */
+        overflow: hidden;
+    }
+</style>
 
-            @foreach (var tab in _tabs)
-            {
-                <MudTabPanel Text="@tab.Label" Tag="@tab.Id"
-                             ShowCloseIcon="@tab.ShowCloseIcon"
-                             Icon="@Icons.Material.Filled.Terminal"
-                             @key="@tab.Id">
-                    @tab.K8STerminalFragment
-                </MudTabPanel>
-            }
-        </ChildContent>
-        <TabPanelHeader>
-            <MudTooltip Text="Close tab. All data will be lost">
-                <MudIconButton Class="ml-2 pa-1" Color="Color.Error" Icon="@Icons.Material.Filled.Close" OnClick="@((_) => RemoveTab(context))" />
-            </MudTooltip>
-        </TabPanelHeader>
-    </MudTabs>
-</MudPaper>
+<div class="kxterm-tab-panel">
+    <MudPaper Class="ma-1 pa-1 kxterm-tabs-container" Style="height: 100%;">
+        <MudTabs @bind-ActivePanelIndex="@_activeTabIndex"
+                 PanelClass="border-radius-bottom kxterm-tab-content"
+                 TabHeaderClass="border-radius-top"
+                 Elevation="2"
+                 KeepPanelsAlive="true"
+                 Style="height: 100%; display: flex; flex-direction: column; min-width: 0;">
+            <ChildContent>
+                @foreach (var tab in TabPanelService.Tabs)
+                {
+                    <MudTabPanel Text="@tab.Label" 
+                                 Tag="@tab.Id"
+                                 ShowCloseIcon="@tab.ShowCloseIcon"
+                                 Icon="@Icons.Material.Filled.Terminal"
+                                 Style="flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden;"
+                                 @key="@tab.Id">
+                        <div style="height: 100%; width: 100%; display: flex; flex-direction: column; min-width: 0;">
+                            @tab.K8STerminalFragment
+                        </div>
+                    </MudTabPanel>
+                }
+            </ChildContent>
+            <TabPanelHeader>
+                <MudTooltip Text="Close tab. All data will be lost">
+                    <MudIconButton Class="ml-2 pa-1" 
+                                   Color="Color.Error" 
+                                   Icon="@Icons.Material.Filled.Close" 
+                                   OnClick="@(() => RemoveTab((Guid)context.Tag))" />
+                </MudTooltip>
+            </TabPanelHeader>
+        </MudTabs>
+    </MudPaper>
+</div>
 
 @code {
-    
-    private List<TabView> _tabs = new();
     private int _activeTabIndex = 0;
-        
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="firstRender"></param>
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var welcomeTab = new TabView
-            {
-                Id = Guid.NewGuid(),
-                Label = $"Welcome",
-                K8STerminalFragment = builder =>
-                {
-                    builder.OpenComponent<WelcomeTerminal>(0);
-                    builder.CloseComponent();
-                }
 
-            };
-            _tabs.Add(welcomeTab);
-            _activeTabIndex = _tabs.Count - 1;
-            StateHasChanged();
-        }
+    protected override void OnInitialized()
+    {
+        TabPanelService.TabsChanged += OnTabsChanged;
+        TabPanelService.ActiveTabChanged += OnActiveTabChanged;
+        TabPanelService.Initialize();
+        _activeTabIndex = TabPanelService.ActiveTabIndex;
     }
-    
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="podName"></param>
-    /// <param name="connectionType"></param>
-    public void AddTabCallback(string podName, string connectionType, string command=null)
-    {
-        var newTab = new TabView
-        {
-            Id = Guid.NewGuid(),
-            Label = $"{podName}",
-            K8STerminalFragment = builder =>
-            {
-                builder.OpenComponent<KubernetesTerminal>(0);
-                builder.AddAttribute(1, "PodName", podName);
-                builder.AddComponentParameter(2, "K8sContext", KubeXTermK8SManager.K8SClient);
-                builder.AddComponentParameter(3, "ConnectionType", connectionType);
-                builder.AddComponentParameter(4, "Command", command.Trim().Split(" "));
-                builder.CloseComponent();
-            }
-        };
 
-        _tabs.Add(newTab);
-        _activeTabIndex = _tabs.Count - 1; // Automatically switch to the new tab
-        StateHasChanged(); // Ensure the UI updates
+    private void OnTabsChanged()
+    {
+        InvokeAsync(StateHasChanged);
     }
-    
-    /// <summary>
-    ///
-    /// </summary>
-    /// <param name="tabPanel"></param>
-    public void RemoveTab(MudTabPanel tabPanel)
+
+    private void OnActiveTabChanged(int newIndex)
     {
-        // Find the tab by its unique ID
-        var tab = _tabs.FirstOrDefault(x => Equals(x.Id, tabPanel.Tag));
-        if (tab != null)
-        {
-            // Get the index of the tab being removed
-            var indexToBeRemoved = _tabs.IndexOf(tab);
-
-            // Remove the tab
-            _tabs.Remove(tab);
-
-            // Adjust the active index
-            if (_activeTabIndex >= _tabs.Count)
-            {
-                // If the active index is out of bounds, select the last tab
-                _activeTabIndex = _tabs.Count - 1;
-            }
-            else if (_activeTabIndex > indexToBeRemoved)
-            {
-                // If the active tab is after the removed tab, adjust its index
-                _activeTabIndex--;
-            }
-            else if (_activeTabIndex == indexToBeRemoved)
-            {
-                //if the active tab is being removed
-                _activeTabIndex = 1;
-                _activeTabIndex = 0; ;
-            }
-        }
-
-        StateHasChanged();
+        _activeTabIndex = newIndex;
+        InvokeAsync(StateHasChanged);
     }
-    
-    private class TabView
+
+    private void RemoveTab(Guid tabId)
     {
-        public string Label { get; set; }
-        //public string Content { get; set; }
-        public RenderFragment K8STerminalFragment { get; set; }
-        public Guid Id { get; set; }
-        public bool ShowCloseIcon { get; set; } = false;
+        TabPanelService.RemoveTab(tabId);
+    }
+
+    public void Dispose()
+    {
+        TabPanelService.TabsChanged -= OnTabsChanged;
+        TabPanelService.ActiveTabChanged -= OnActiveTabChanged;
     }
 }

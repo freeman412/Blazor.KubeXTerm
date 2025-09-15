@@ -1,195 +1,102 @@
 ﻿@using XtermBlazor
 @using k8s
 @using Utils
-@using KubeXTerm.Services
+@using Blazor.KubeXTerm.Services
 
 @implements IAsyncDisposable
 @inject IJSRuntime JsRuntime
+@inject KubeXTermSessionRegistry Sessions
 
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-<div style="background-color: #282a36; margin-left: 10px;
-    border-radius: 10px;
-    margin-right: 10px;
-    margin-top: 10px;
-    margin-bottom: 10px;" class="overflow-hidden">
+<div @ref="_hostRef" class="kxterm-terminal-host">
+    <div class="kxterm-shell">
         <Xterm OnData="@WriteToTerminal"
-        Addons="_addons"
-        @ref="_term"
-        Options="_options"
-        OnFirstRender="@OnFirstRender"
-        Style=@Style
-        Class="rounded-lg" 
-        OnRender="FitTerminal"
-        />
+               Addons="_addons"
+               @ref="_term"
+               Options="_options"
+               OnFirstRender="@OnFirstRender"
+               Style="@Style"
+               Class="kxterm-xterm"
+               OnRender="FitTerminal" />
+    </div>
 </div>
 
 @code 
 {
-    [Parameter]
-    public string Style { get; set; } = $"padding-left: 10px; padding-right: 10px; padding-top: 10px; height: calc(100vh - 195px); margin-bottom: 15px";
-    [Parameter]
-    public string Namespace { get; set; } = "default";
-    [Parameter, EditorRequired] 
-    public required string PodName { get; set; }
-    [Parameter]
-    public string? ContainerName { get; set; }
-    [Parameter, EditorRequired]
-    public required IKubernetes K8SContext { get; set; }
-    [Parameter, EditorRequired]
-    public required string ConnectionType {get; set;}
-    [Parameter]
-    public string[] Command { get; set; } =
-    [
-        "/bin/bash"
-    ];
+    [Parameter] public string Style { get; set; } = "flex:1 1 auto; min-height:0; padding:5px";
+    [Parameter] public string Namespace { get; set; } = "default";
+    [Parameter, EditorRequired] public required string PodName { get; set; }
+    [Parameter] public string? ContainerName { get; set; }
+    [Parameter, EditorRequired] public required IKubernetes K8SContext { get; set; }
+    [Parameter, EditorRequired] public required string ConnectionType { get; set; }
+    [Parameter] public string[] Command { get; set; } = [ "/bin/bash" ];
+    [Parameter] public Guid? SessionId { get; set; }   // new
 
-    //The main Xterm Object
     private Xterm _term;
     private readonly HashSet<string> _addons = ["addon-fit"];
     private KubeXTermConnectionManager _kubeExecutor;
     private TerminalOptions _options;
-
-    //Change to take a parameter at some point - ideally would be an uploaded file? 
-    // For now default config works if running in k8s oro  using docker desktop kubernetes.
-    KubernetesClientConfiguration _k8SConfig = KubernetesClientConfiguration.BuildDefaultConfig();
-
     private readonly CancellationTokenSource _cancellationTokenSource = new();
-    private DotNetObjectReference<KubernetesTerminal> _dotNetObjectReference;
+    private DotNetObjectReference<KubernetesTerminal> _dotNetRef;
+    private ElementReference _hostRef;
+    private Guid _resolvedSessionId;
 
-    /// <summary>
-    /// Tracks the Viewport width for resize events.
-    /// </summary>
-    private int ViewportWidth { get; set; }
-
-    /// <summary>
-    /// Tracks the viewport height for resize events.
-    /// </summary>
-    private int ViewportHeight { get; set; }
-
-    /// <summary>
-    /// Sets up the terminal options based on the type of connection.
-    /// </summary>
     protected override void OnParametersSet()
     {
-        bool convertEol = false;
-        bool disableStdin = false;
-        // Update _options based on ConnectionType
-        if (ConnectionType != K8SConnectionType.Bash)
-        {
-            disableStdin = true;
-            convertEol = true;
-        }
+        bool disableStdin = ConnectionType != K8SConnectionType.Bash;
+        bool convertEol = disableStdin;
 
         _options = new TerminalOptions
         {
-                CursorBlink = true,
-                CursorStyle = CursorStyle.Bar,
-                FontFamily = "monospace",
-                ConvertEOL = convertEol,
-                DisableStdin = disableStdin,
-
-                Theme =
+            CursorBlink = true,
+            CursorStyle = CursorStyle.Bar,
+            FontFamily = "monospace",
+            ConvertEOL = convertEol,
+            DisableStdin = disableStdin,
+            Theme =
             {
                 Background = "#282a36",
                 Foreground = "#bacfc7"
-            },
-         };
-
+            }
+        };
     }
 
-    /// <summary>
-    /// Method called from the JavaScript watcher for user (browser) initiated resizing.
-    /// </summary>
-    /// <param name="width">The new width of the viewport.</param>
-    /// <param name="height">The new height of the viewport.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    [JSInvokable]
-    public async Task OnResize(int width, int height)
-    {
-        if (ViewportWidth == width && ViewportHeight == height) 
-            return;
-        ViewportWidth = width;
-        ViewportHeight = height;
-        await FitTerminal();
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Registers the viewport watcher and performs the initial resize of the terminal.
-    /// </summary>
-    /// <param name="firstRender">Indicates whether this is the first render.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try{
-            if (firstRender)
-            {
-                _dotNetObjectReference = DotNetObjectReference.Create(this);
-                await JsRuntime.InvokeVoidAsync("window.registerViewportChangeCallback", _dotNetObjectReference);
-            }
-
-            await SendResize();
-
-        }catch(Exception e)
+        if (firstRender)
         {
-            //Not a big deal, the component is gone
-            Console.WriteLine($"Error in OnAfterRenderAsync: {e.Message}");
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JsRuntime.InvokeVoidAsync("kxterm.register", _hostRef, _dotNetRef);
         }
     }
 
-    /// <summary>
-    /// Sends the resize command to the KubeExecutor.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    private async Task SendResize()
-    {
-        if (_kubeExecutor != null)
-        {
-            int rows = await _term.GetRows();
-            int cols = await _term.GetColumns();
-            await _kubeExecutor.SendResizeCommandAsync(rows, cols);
-        }
-    }
-
-    /// <summary>
-    /// The first render method for the XTerm component. Sets up the connection to k8s and fits the terminal to the window.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task OnFirstRender()
     {
-        //Initialize the kubernetes executor
-        _kubeExecutor = new KubeXTermConnectionManager(_term, K8SContext, Namespace);
+        _resolvedSessionId = SessionId.HasValue && SessionId.Value != Guid.Empty ? SessionId.Value : Guid.NewGuid();
+
+        bool isNew;
+        _kubeExecutor = Sessions.GetOrCreate(
+            _resolvedSessionId,
+            factory: () => new KubeXTermConnectionManager(K8SContext, Namespace),
+            out isNew);
+
+        // Attach current terminal view to running session (or fresh one)
+        _kubeExecutor.AttachTerminal(_term);
+
         await FitTerminal();
 
-        if(ConnectionType != K8SConnectionType.Bash)
+        if (isNew)
         {
-            _options.DisableStdin = true;
-            _options.ConvertEOL = true;
+            await StartTerminalConnection();
         }
-
-
-        await StartTerminalConnection();
-
+        else
+        {
+            // On reattach, force TUI redraw for interactive sessions
+            await _kubeExecutor.ForceRedrawAsync();
+        }
     }
 
-    /// <summary>
-    /// Fits the terminal to the current browser window size.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    private async Task FitTerminal()
-    {
-        //Tell the javacript XTerm to fit the container
-        await _term.Addon("addon-fit").InvokeVoidAsync("fit");
-
-        //Tell websocket in kubernetes about the resize
-        await SendResize();
-    }
-
-    /// <summary>
-    /// Sets up the terminal connection based on the requested type.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task StartTerminalConnection()
     {
         try
@@ -197,56 +104,58 @@
             if (ConnectionType == K8SConnectionType.Bash)
                 await _kubeExecutor.ExecInPod(PodName, ContainerName, Command);
             else if (ConnectionType == K8SConnectionType.Stdout)
-                await _kubeExecutor.StdOutInPod(PodName, ContainerName);
+                await _kubeExecutor.StdOutLogsAsync(PodName, ContainerName);
             else if (ConnectionType == K8SConnectionType.Logs)
-                await _kubeExecutor.LogsInPodAync(PodName, ContainerName);
+                await _kubeExecutor.LogsInPodAsync(PodName, ContainerName, 600);
             else if (ConnectionType == K8SConnectionType.Stderr)
-                await _kubeExecutor.StdErrInPod(PodName, ContainerName);
+                await _kubeExecutor.StdErrLogsAsync(PodName, ContainerName);
             else if (ConnectionType == K8SConnectionType.Alllogs)
-                await _kubeExecutor.AllLogsAsync(PodName, ContainerName);
+                await _kubeExecutor.LogsInPodAsync(PodName, ContainerName);
         }
         catch (Exception e)
         {
             Console.WriteLine($"Error in StartTerminalConnection: {e.Message}");
-            _term.WriteLine("Unable to initiate terminal connection.");
+            try { await _term.WriteLine("Unable to initiate terminal connection."); } catch { }
         }
     }
 
-    /// <summary>
-    /// Writes data to the terminal. This method is called from the OnData function.
-    /// </summary>
-    /// <param name="data">The data to write to the terminal.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    private async Task WriteToTerminal(string data)
+    private Task WriteToTerminal(string data) => _kubeExecutor.WriteStream(data);
+
+    private async Task SendResize()
     {
-        await _kubeExecutor.WriteStream(data);
+        if (_kubeExecutor == null || _term == null) return;
+        int rows = await _term.GetRows();
+        int cols = await _term.GetColumns();
+        await _kubeExecutor.SendResizeCommandAsync(rows, cols);
     }
 
-    /// <summary>
-    /// Disposes of resources used by the component.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task FitTerminal()
+    {
+        if (_term == null) return;
+        await _term.Addon("addon-fit").InvokeVoidAsync("fit");
+        await SendResize();
+    }
+
+    [JSInvokable]
+    public Task FitNow() => FitTerminal();
+
     public async ValueTask DisposeAsync()
     {
         try
         {
-                // Dispose of JSInterop callbacks
-            if (_dotNetObjectReference != null)
+            _kubeExecutor?.DetachTerminal();
+
+            if (_dotNetRef != null)
             {
-                _dotNetObjectReference.Dispose();
-                await JsRuntime.InvokeVoidAsync("window.unregisterViewportChangeCallback");
+                await JsRuntime.InvokeVoidAsync("kxterm.unregister", _hostRef);
+                _dotNetRef.Dispose();
             }
-            // Dispose of the KubeExecutor resource
-            _kubeExecutor?.DisposeAsync();
         }
         catch (Exception ex)
         {
-            // Handle any exceptions that might occur during stream write operations
-            Console.WriteLine($"Error while Disposing of Terminal: {ex.Message}");
+            Console.WriteLine($"Dispose error: {ex.Message}");
         }
-
-        // Cancel and dispose of the cancellation token source
-        _cancellationTokenSource?.Cancel();
-        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
     }
 }

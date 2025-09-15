@@ -1,94 +1,143 @@
-﻿using k8s;
+﻿using System.Collections.Concurrent;
+using k8s;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Text;
 using XtermBlazor;
-using System.Runtime.ConstrainedExecution;
 
 namespace Blazor.KubeXTerm.Services
 {
-    internal class KubeXTermConnectionManager : IAsyncDisposable
+    public class KubeXTermConnectionManager : IAsyncDisposable
     {
-        private IKubernetes _k8SContext;
-        private string _namespace = "default";
-        public Xterm WebTerminal;
-        private Stream _stdinStream;
-        WebSocket _webSocket;
-        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly IKubernetes _k8SContext;
+        private readonly string _namespace;
+        private Xterm? _attachedTerminal;
+        private Stream? _stdinStream;
+        private WebSocket? _webSocket;
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
         private bool _disposedValue;
 
+        // Simple ring buffer of recent output (bytes capped)
+        private readonly ConcurrentQueue<string> _history = new();
+        private const int MaxHistoryBytes = 256 * 1024;
+        private int _historyBytes;
 
-        public KubeXTermConnectionManager(Xterm term, IKubernetes k8SContext, string @namespace)
+        // When true, we are in an interactive TTY session (e.g., vim/htop). In this mode
+        // we should not buffer/replay output because TUIs send incremental escape sequences.
+        private bool _isInteractiveTty; 
+
+        // Add this field near your other private fields
+        private string _lineRemainder = string.Empty;
+
+        public KubeXTermConnectionManager(IKubernetes k8SContext, string kubernetesNamespace)
         {
-            WebTerminal = term;
-            this._k8SContext = k8SContext;
-            _namespace = @namespace;
+            _k8SContext = k8SContext;
+            _namespace = kubernetesNamespace;
         }
 
+        // Back-compat ctor (kept; delegates to new pattern)
+        public KubeXTermConnectionManager(Xterm term, IKubernetes k8SContext, string kubernetesNamespace) : this(k8SContext, kubernetesNamespace)
+        {
+            AttachTerminal(term);
+        }
 
-        /// <summary>
-        /// Sends the resize command to the kubernetes websocket on channel 4
-        /// Kinda irritating this is noto a function in the .net K8s api already
-        /// </summary>
-        /// <param name="webSocket"></param>
-        /// <param name="cols"></param>
-        /// <param name="rows"></param>
-        /// <returns></returns>
+        public async Task AttachTerminal(Xterm term)
+        {
+            _attachedTerminal = term;
+
+            Console.WriteLine($"AttachTerminal: _isInteractiveTty={_isInteractiveTty}, History count={_history.Count}, History bytes={_historyBytes}");
+
+            // For non-interactive sessions, restore history immediately in a single write
+            if (!_isInteractiveTty && _history.Count > 0)
+            {
+                try
+                {
+                    var sb = new StringBuilder();
+                    foreach (var chunk in _history)
+                        sb.Append(chunk);
+
+                    // Include any partial trailing line that hasn't been terminated yet
+                    if (!string.IsNullOrEmpty(_lineRemainder))
+                        sb.Append(_lineRemainder);
+
+                    await _attachedTerminal.Write(sb.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error replaying history: {ex.Message}");
+                }
+            }
+
+            // For interactive sessions (TTY/TUIs), do nothing here.
+        }
+
+        public void DetachTerminal()
+        {
+            _attachedTerminal = null;
+        }
+
+        private void AppendHistory(string chunk)
+        {
+            // Do not buffer interactive TTY output; TUIs use incremental escape sequences.
+            if (_isInteractiveTty) return;
+
+            // Accumulate by lines so we can repaint cleanly on reattach
+            var text = (_lineRemainder ?? string.Empty) + (chunk ?? string.Empty);
+            _lineRemainder = string.Empty;
+
+            int start = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] == '\n')
+                {
+                    // Include the newline in the stored line
+                    string line = text.Substring(start, i - start + 1);
+
+                    _history.Enqueue(line);
+                    _historyBytes += Encoding.UTF8.GetByteCount(line);
+
+                    // Trim by bytes cap
+                    while (_historyBytes > MaxHistoryBytes && _history.TryDequeue(out var removed))
+                    {
+                        _historyBytes -= Encoding.UTF8.GetByteCount(removed);
+                    }
+
+                    start = i + 1;
+                }
+            }
+
+            // Keep any trailing partial line to be completed by a future chunk
+            if (start < text.Length)
+            {
+                _lineRemainder = text.Substring(start);
+            }
+        }
+
         public async Task SendResizeCommandAsync(int rows, int cols)
         {
             try
             {
-                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                if (_webSocket is { State: WebSocketState.Open })
                 {
-                    // Kubernetes expects JSON payload for resize
-                    var resizePayload = new
-                    {
-                        Height = rows,
-                        Width = cols
-                    };
-
-                    // Convert the payload to JSON
-                    var jsonPayload = JsonSerializer.Serialize(resizePayload);
-
-                    // Create the message for channel 4 (resize)
-                    var message = new byte[1 + Encoding.UTF8.GetByteCount(jsonPayload)];
-                    message[0] = 4; // Channel 4 for resize
-                    Encoding.UTF8.GetBytes(jsonPayload, 0, jsonPayload.Length, message, 1);
-
-                    // Send the message as a binary frame
-                    await _webSocket.SendAsync(
-                        new ArraySegment<byte>(message),
-                        WebSocketMessageType.Binary,
-                        true,
-                        CancellationToken.None
-                    );
+                    var resizePayload = JsonSerializer.Serialize(new { Height = rows, Width = cols });
+                    var message = new byte[1 + Encoding.UTF8.GetByteCount(resizePayload)];
+                    message[0] = 4; // resize channel
+                    Encoding.UTF8.GetBytes(resizePayload, 0, resizePayload.Length, message, 1);
+                    await _webSocket.SendAsync(new ArraySegment<byte>(message), WebSocketMessageType.Binary, true, CancellationToken.None);
                 }
             }
             catch (Exception ex)
-            {   
+            {
                 Console.WriteLine($"Error sending resize command: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Executes a /bin/bash in the target pod
-        ///  ////TODO Change to id of some kind instead of name
-        /// </summary>
-        /// <param name="podname"></param>
-        /// <returns></returns>
-        public async Task ExecInPod(string podname, string containerName, string[] cmd)
+        public async Task ExecInPod(string podname, string? containerName, string[] cmd)
         {
-            //var cmd = new[] { "/bin/bash" }; // Use an interactive shell for command execution
+            _isInteractiveTty = true; // interactive TTY session
             _webSocket = await _k8SContext.WebSocketNamespacedPodExecAsync(
-                name: podname,
-                @namespace: _namespace,
-                container: containerName,
-                command: cmd,
-                stderr: true,
-                stdin: true,
-                stdout: true,
-                tty: true // TTY is true to enable interactive terminal
-
+                name: podname, @namespace: _namespace, container: containerName,
+                command: cmd, stderr: true, stdin: true, stdout: true, tty: true
             ).ConfigureAwait(false);
 
             var demux = new StreamDemuxer(_webSocket);
@@ -96,246 +145,261 @@ namespace Blazor.KubeXTerm.Services
 
             // Get stdin, stdout, and stderr streams
             byte stdinIndex = 0;
-            _stdinStream = demux.GetStream(stdinIndex, stdinIndex); // Stdin channel
-            var stdoutStream = demux.GetStream(1, 1); // Stdout channel
-            var stderrStream = demux.GetStream(2, 2); // Stderr channel
 
-            // Start tasks for reading stdout and stderr
+            _stdinStream = demux.GetStream(stdinIndex, stdinIndex);
+            var stdoutStream = demux.GetStream(1, 1);
+            var stderrStream = demux.GetStream(2, 2);
+
             var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
             var stderrTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
-
-            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(stdoutTask, stderrTask).ConfigureAwait(false);
 
             if (!_disposedValue)
-                try
-                {
-                    await WebTerminal.WriteLine("WebSocket connection closed.");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
-                }
+            {
+                AppendHistory("\r\nWebSocket connection closed.\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine("WebSocket connection closed."); } catch { } }
+            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="podname"></param>
-        /// <returns></returns>
-        public async Task StdOutInPod(string podname, string containerName)
+
+        public async Task LogsInPodAsync(string podname, string? containerName, int? sinceSeconds=null)
         {
-            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
+            _isInteractiveTty = false; // log stream (non-interactive)
+            
+            // Use log streaming API instead of WebSocket attachment
+            // sinceSeconds: 0 means "from now", follow: true means "keep following"
+            var taskStream = _k8SContext.CoreV1.ReadNamespacedPodLogAsync(
                 name: podname,
-                @namespace: _namespace,
+                namespaceParameter: _namespace,
                 container: containerName,
-                stderr: false,
-                stdin: false,
-                stdout: true,
-                tty: false // TTY is true to enable interactive terminal
-
-            ).ConfigureAwait(false);
-
-            var demux = new StreamDemuxer(_webSocket);
-            demux.Start();
-
-            // Get stdin
-            var stdoutStream = demux.GetStream(1, 1); // Stdout channel
-
-            // Start tasks for reading stdout and stderr
-            var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
-
-            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
-            await Task.WhenAny(stdoutTask).ConfigureAwait(false);
-
-            if (!_disposedValue)
-                try
-                {
-                    await WebTerminal.WriteLine("WebSocket connection closed.");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
-                }
-        }
-
-        /// <summary>
-        /// Only displays stderr in the XTerm window
-        /// </summary>
-        /// <param name="podname"></param>
-        /// <param name="containerName"></param>
-        /// <returns></returns>
-        public async Task StdErrInPod(string podname, string containerName)
-        {
-            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
-                name: podname,
-                @namespace: _namespace,
-                container: containerName,
-                stderr: true,
-                stdin: false,
-                stdout: false,
-                tty: false // TTY is true to enable interactive terminal
-
-            ).ConfigureAwait(false);
-
-            var demux = new StreamDemuxer(_webSocket);
-            demux.Start();
-
-            // Get stdin
-            var stderrStream = demux.GetStream(2, 1); // Stdout channel
-
-            // Start tasks for reading stdout and stderr
-            var stdoutTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
-
-            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
-            await Task.WhenAny(stdoutTask).ConfigureAwait(false);
-
-            if (!_disposedValue)
-                try
-                {
-                    await WebTerminal.WriteLine("WebSocket connection closed.");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
-                }
-        }
-
-        /// <summary>
-        /// Get logs from the very beginning //TODO configure a limit?
-        /// </summary>
-        /// <param name="podname"></param>
-        /// <param name="containerName"></param>
-        /// <returns></returns>
-        public async Task AllLogsAsync(string podname, string containerName)
-        {
-            var taskStream = _k8SContext.CoreV1.ReadNamespacedPodLogAsync(podname, _namespace, follow: true);
-
-            // Await the task to get the actual stream
+                follow: true,
+                sinceSeconds: sinceSeconds // Start from now, not from beginning
+            );
+            
             Stream logStream = await taskStream;
-
-            // Start tasks for reading stdout and stderr
             var logTask = Task.Run(async () => await ReadStream(logStream).ConfigureAwait(false));
-
-            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
             await Task.WhenAny(logTask).ConfigureAwait(false);
 
             if (!_disposedValue)
-                try
-                {
-                    await WebTerminal.WriteLine("WebSocket connection closed.");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
-                }
+            {
+                AppendHistory("\r\nLog stream closed.\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine("Log stream closed."); } catch { } }
+            }
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="podname"></param>
-        /// <returns></returns>
-        public async Task LogsInPodAync(string podname, string containerName)
+        // Enhanced stdout logs method with better error handling
+        public async Task StdOutLogsAsync(string podname, string? containerName)
         {
+            _isInteractiveTty = false; // log stream (non-interactive)
+            
+            try
+            {
+                // First, verify the pod exists and is running
+                var pod = await _k8SContext.CoreV1.ReadNamespacedPodAsync(podname, _namespace);
+                
+                if (pod.Status.Phase != "Running")
+                {
+                    var message = $"Pod '{podname}' is not running. Current status: {pod.Status.Phase}";
+                    AppendHistory($"\r\n{message}\r\n");
+                    var t = _attachedTerminal;
+                    if (t != null) { try { await t.WriteLine(message); } catch { } }
+                    return;
+                }
 
-            _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
-                name: podname,
-                @namespace: _namespace,
-                container: containerName,
-                stderr: true,
-                stdin: false,
-                stdout: true,
-                tty: false // TTY is true to enable interactive terminal
+                // Verify container exists if specified
+                if (!string.IsNullOrEmpty(containerName))
+                {
+                    var containerExists = pod.Spec.Containers.Any(c => c.Name == containerName) || 
+                                         (pod.Spec.InitContainers?.Any(c => c.Name == containerName) ?? false);
+                    if (!containerExists)
+                    {
+                        var message = $"Container '{containerName}' not found in pod '{podname}'";
+                        AppendHistory($"\r\n{message}\r\n");
+                        var t = _attachedTerminal;
+                        if (t != null) { try { await t.WriteLine(message); } catch { } }
+                        return;
+                    }
+                }
 
-            ).ConfigureAwait(false);
+                _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
+                    name: podname,
+                    @namespace: _namespace,
+                    container: containerName,
+                    stderr: false,  // Only stdout
+                    stdin: false,
+                    stdout: true,
+                    tty: false
+                ).ConfigureAwait(false);
 
-            var demux = new StreamDemuxer(_webSocket);
-            demux.Start();
+                var demux = new StreamDemuxer(_webSocket);
+                demux.Start();
 
-            // Get stdin, stdout, and stderr streams
-            var stdoutStream = demux.GetStream(1, 1); // Stdout channel
-            var stderrStream = demux.GetStream(2, 1); // Stderr channel
-
-            // Start tasks for reading stdout and stderr
-            var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
-            var stderrTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
-
-            // Wait for any one of the tasks to complete or error. This can happen if a user exits bash or if there is an error
-            await Task.WhenAny(stdoutTask, stderrTask).ConfigureAwait(false);
+                var stdoutStream = demux.GetStream(1, 1); // Stdout channel only
+                var stdoutTask = Task.Run(async () => await ReadStream(stdoutStream).ConfigureAwait(false));
+                await Task.WhenAny(stdoutTask).ConfigureAwait(false);
+            }
+            catch (k8s.Autorest.HttpOperationException ex)
+            {
+                var errorMessage = $"Kubernetes API error: {ex.Response.StatusCode} - {ex.Response.Content}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
+            catch (System.Net.WebSockets.WebSocketException ex)
+            {
+                var errorMessage = $"WebSocket connection failed: {ex.Message}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = $"Unexpected error: {ex.Message}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
 
             if (!_disposedValue)
-                try
-                {
-                    await WebTerminal.WriteLine("WebSocket connection closed.");
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error while writing to web terminal, tab is probably closed");
-                }
+            {
+                AppendHistory("\r\nStdout stream closed.\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine("Stdout stream closed."); } catch { } }
+            }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="input"></param>
-        /// <returns></returns>
+        // Enhanced stderr logs method with better error handling
+        public async Task StdErrLogsAsync(string podname, string? containerName)
+        {
+            _isInteractiveTty = false; // log stream (non-interactive)
+            
+            try
+            {
+                // First, verify the pod exists and is running
+                var pod = await _k8SContext.CoreV1.ReadNamespacedPodAsync(podname, _namespace);
+                
+                if (pod.Status.Phase != "Running")
+                {
+                    var message = $"Pod '{podname}' is not running. Current status: {pod.Status.Phase}";
+                    AppendHistory($"\r\n{message}\r\n");
+                    var t = _attachedTerminal;
+                    if (t != null) { try { await t.WriteLine(message); } catch { } }
+                    return;
+                }
+
+                // Verify container exists if specified
+                if (!string.IsNullOrEmpty(containerName))
+                {
+                    var containerExists = pod.Spec.Containers.Any(c => c.Name == containerName) || 
+                                         (pod.Spec.InitContainers?.Any(c => c.Name == containerName) ?? false);
+                    if (!containerExists)
+                    {
+                        var message = $"Container '{containerName}' not found in pod '{podname}'";
+                        AppendHistory($"\r\n{message}\r\n");
+                        var t = _attachedTerminal;
+                        if (t != null) { try { await t.WriteLine(message); } catch { } }
+                        return;
+                    }
+                }
+
+                _webSocket = await _k8SContext.WebSocketNamespacedPodAttachAsync(
+                    name: podname,
+                    @namespace: _namespace,
+                    container: containerName,
+                    stderr: true,   // Only stderr
+                    stdin: false,
+                    stdout: false,
+                    tty: false
+                ).ConfigureAwait(false);
+
+                var demux = new StreamDemuxer(_webSocket);
+                demux.Start();
+
+                var stderrStream = demux.GetStream(2, 2); // Stderr channel only
+                var stderrTask = Task.Run(async () => await ReadStream(stderrStream).ConfigureAwait(false));
+                await Task.WhenAny(stderrTask).ConfigureAwait(false);
+            }
+            catch (k8s.Autorest.HttpOperationException ex)
+            {
+                var errorMessage = $"Kubernetes API error: {ex.Response.StatusCode} - {ex.Response.Content}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
+            catch (System.Net.WebSockets.WebSocketException ex)
+            {
+                var errorMessage = $"WebSocket connection failed: {ex.Message}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
+            catch (Exception ex)
+            {
+                var errorMessage = $"Unexpected error: {ex.Message}";
+                AppendHistory($"\r\n{errorMessage}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine(errorMessage); } catch { } }
+            }
+
+            if (!_disposedValue)
+            {
+                AppendHistory("\r\nStderr stream closed.\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine("Stderr stream closed."); } catch { } }
+            }
+        }
+
         public async Task WriteStream(string input)
         {
             try
             {
-                // Write input to the stdin stream
                 var inputBytes = Encoding.UTF8.GetBytes(input);
-                await _stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
-                await _stdinStream.FlushAsync().ConfigureAwait(false);
+                if (_stdinStream != null)
+                {
+                    await _stdinStream.WriteAsync(inputBytes, 0, inputBytes.Length).ConfigureAwait(false);
+                    await _stdinStream.FlushAsync().ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
-                await WebTerminal.WriteLine($"Error writing to stream: {ex.Message}");
-
+                AppendHistory($"\r\nError writing to stream: {ex.Message}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine($"Error writing to stream: {ex.Message}"); } catch { } }
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="b"></param>
-        /// <returns></returns>
         public async Task WriteByte(byte b)
         {
             try
             {
-                // Write input to the stdin stream, if sdin is null, we are just looking at logs
-                if (_stdinStream == null)
-                    return;
+                if (_stdinStream == null) return;
                 _stdinStream.WriteByte(b);
                 await _stdinStream.FlushAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                await WebTerminal.WriteLine($"Error writing byte to stream: {ex.Message}");
-
+                AppendHistory($"\r\nError writing byte to stream: {ex.Message}\r\n");
+                var t = _attachedTerminal;
+                if (t != null) { try { await t.WriteLine($"Error writing byte to stream: {ex.Message}"); } catch { } }
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
         public async Task CloseStreams()
         {
-            //TODO test if streams are open first?
-            _stdinStream?.Close();
-            _stdinStream?.Dispose();
-            _webSocket?.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token);
-            _webSocket?.Dispose();
+            try
+            {
+                _stdinStream?.Dispose();
+                if (_webSocket != null)
+                {
+                    try { await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", _cancellationTokenSource.Token); } catch { }
+                    _webSocket.Dispose();
+                }
+            }
+            catch { /* ignore */ }
         }
 
-        /// <summary>
-        /// Reads a stream and immediately writes it in the web terminal
-        /// </summary>
-        /// <param name="stream"></param>
-        /// <returns></returns>
-        private async Task ReadStream(System.IO.Stream stream)
+        private async Task ReadStream(Stream stream)
         {
             var buffer = new byte[4096];
             while (true)
@@ -343,51 +407,61 @@ namespace Blazor.KubeXTerm.Services
                 try
                 {
                     int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
-                    if (bytesRead == 0)
-                    {
-                        // Stream might have closed
-                        break;
-                    }
-
+                    if (bytesRead == 0) break;
                     var outputText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    await WebTerminal.Write(outputText);
+
+                    AppendHistory(outputText);
+                    var t = _attachedTerminal;
+                    if (t != null)
+                    {
+                        try { await t.Write(outputText); } catch { /* view may be gone; ignore */ }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    await WebTerminal.WriteLine($"Error reading stream: {ex.Message}");
+                    AppendHistory($"\r\nError reading stream: {ex.Message}\r\n");
+                    var t = _attachedTerminal;
+                    if (t != null) { try { await t.WriteLine($"Error reading stream: {ex.Message}"); } catch { } }
                     break;
                 }
             }
         }
 
-        /// <summary>
-        /// Dispose of all the streams etc. //TODO: figure out known issue with the zombie bash 
-        /// processes left behind when closing the web terminals. 
-        /// </summary>
-        /// <returns></returns>
         public async ValueTask DisposeAsync()
         {
-            if (!_disposedValue)
+            if (_disposedValue) return;
+            _disposedValue = true;
+            try
+            {
+                await CloseStreams();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Dispose error: {ex.Message}");
+            }
+            finally
+            {
+                _cancellationTokenSource.Cancel();
+                _cancellationTokenSource.Dispose();
+            }
+        }
+
+        // Add this new method
+        public async Task ForceRedrawAsync()
+        {
+            if (_attachedTerminal != null && _isInteractiveTty && _webSocket is { State: WebSocketState.Open })
             {
                 try
                 {
-                    //Apparently this is not how kubectl even does this. Zombies are just ok?
-                    // Send Ctrl+C (SIGINT) to interrupt the process in the terminal
-                    //await WriteByte(0x03); // Ctrl+C (SIGINT)
-                    // Send Ctrl+D (EOF) to simulate EOF or exit signal
-                    //await WriteByte(0x04); // Ctrl+D (EOF)
-                    _disposedValue = true;
+                    int rows = await _attachedTerminal.GetRows();
+                    int cols = await _attachedTerminal.GetColumns();
+                    
+                    // Force TUI redraw by sending a slight resize then correct size
+                    await SendResizeCommandAsync(rows - 1, cols);
+                    await Task.Delay(50);
+                    await SendResizeCommandAsync(rows, cols);
                 }
-                catch (Exception ex)
-                {
-                    // Handle any exceptions that might occur during stream write operations
-                    Console.WriteLine($"Error while sending Ctrl signals: {ex.Message}");
-                }
-                finally
-                {
-                    _disposedValue = true;
-                    await CloseStreams();
-                }
+                catch { /* ignore */ }
             }
         }
     }

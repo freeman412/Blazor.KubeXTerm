@@ -15,66 +15,166 @@
 
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JsRuntime
 
 @attribute [Authorize]
 
+<style>
+    .sandbox-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 200px);
+        overflow: hidden;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .sandbox-grid {
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .sandbox-left-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .sandbox-right-panel {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .sandbox-scrollable {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .sandbox-terminal-container {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    /* Splitter container (acts as the draggable target) */
+    .sandbox-splitter {
+        flex: 0 0 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* Center vertically inside the row */
+        align-self: center;
+        height: 100px;                 /* Desired handle height */
+        cursor: col-resize;
+        user-select: none;
+        z-index: 10;
+        /* Transparent so only the handle is visible, but keeps a wider hit box */
+        background: transparent;
+        padding: 0;
+    }
+
+    /* Visible handle */
+    .sandbox-splitter-handle {
+        width: 6px;
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg,
+            rgba(120,120,130,0.15),
+            rgba(120,120,130,0.45),
+            rgba(120,120,130,0.15));
+        transition: background-color .15s ease, box-shadow .15s ease;
+        cursor: inherit;
+        position: relative;
+    }
+
+    .sandbox-splitter:hover .sandbox-splitter-handle,
+    body.resizing .sandbox-splitter-handle {
+        background: linear-gradient(90deg,
+            rgba(80,160,220,0.25),
+            rgba(80,160,220,0.65),
+            rgba(80,160,220,0.25));
+        box-shadow: 0 0 4px rgba(80,160,220,0.6);
+    }
+
+    body.resizing {
+        cursor: col-resize !important;
+    }
+</style>
+
 <AuthorizeView Context="authViewContext">
     <Authorized>
-        <MudGrid Spacing="2">
-            <MudItem xs="4">
-                <MudPaper Class="ma-1 pa-1 overflow-auto" Style="height: calc(100vh - 105px)">
-                    <MudGrid Spacing="2">
-                        <MudItem>
-                            <MudRadioGroup T="string" Name="Resource Type"
-                                           @bind-Value="@_resourceTypeSelected"
-                                           >
-                                <MudRadio T="string" Label="Predefined" Value="@("Predefined")"></MudRadio>
-                                <MudRadio T="string" Label="Manuel" Value="@("Manuel")"></MudRadio>
-                            </MudRadioGroup>
-                        </MudItem>
-                        @if (_resourceTypeSelected == "Predefined")
-                        {
-                        <MudItem xs="12" Class="ma-4">
-                            <PredefinedResourceDropdown @ref=_predefinedResourceDropdown></PredefinedResourceDropdown>
-                        </MudItem>
-                        }
-                        else
-                        {
-                            <MudItem xs="12">
-                                <ResourceRequestForm @ref=_resourceRequestForm></ResourceRequestForm>
+        <div id="sandbox-root" class="sandbox-container">
+            <div id="sandbox-grid" class="sandbox-grid">
+                <div id="sandbox-left" class="sandbox-left-panel" style="flex:0 0 25%;">
+                    <MudPaper Class="ma-1 pa-1 sandbox-scrollable">
+                        <MudGrid Spacing="2">
+                            <MudItem>
+                                <MudRadioGroup T="string" Name="Resource Type"
+                                               @bind-Value="@_resourceTypeSelected">
+                                    <MudRadio T="string" Label="Predefined" Value="@("Predefined")"></MudRadio>
+                                    <MudRadio T="string" Label="Manuel" Value="@("Manuel")"></MudRadio>
+                                </MudRadioGroup>
                             </MudItem>
-                                
-                        }
-                        <MudItem xs="12" Class="ma-2">
-                            <MudStack Row="true">
-                                <MudButton OnClick="@(() => RequestK8SResourceAsync(authViewContext.User.FindFirst("preferred_username")?.Value))"
-                                           Color="Color.Primary" Variant="Variant.Filled"
-                                           >
-                                    Request Resource
-                                </MudButton>
+                            @if (_resourceTypeSelected == "Predefined")
+                            {
+                                <MudItem xs="12" Class="ma-4">
+                                    <PredefinedResourceDropdown @ref=_predefinedResourceDropdown></PredefinedResourceDropdown>
+                                </MudItem>
+                            }
+                            else
+                            {
+                                <MudItem xs="12">
+                                    <ResourceRequestForm @ref=_resourceRequestForm></ResourceRequestForm>
+                                </MudItem>
+                            }
+                            <MudItem xs="12" Class="ma-2">
+                                <MudStack Row="true">
+                                    <MudButton OnClick="@(() => RequestK8SResourceAsync(authViewContext.User.FindFirst("preferred_username")?.Value))"
+                                               Color="Color.Primary" Variant="Variant.Filled">
+                                        Request Resource
+                                    </MudButton>
+                                    <UploadPredefinedResource
+                                        OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="12" Class="ma-4">
+                                <MudPaper Class="ma-2 pa-2">
+                                    <MudTextField @bind-Value="_cmd" Label="Command"
+                                                  HelperText="Custom Command. Default is /usr/local/bin/start.sh">
+                                    </MudTextField>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <PodTable Cmd="@_cmd"></PodTable>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </div>
 
-                                <UploadPredefinedResource
-                                    OnUploadFinished="_predefinedResourceDropdown.PopulatePredifinedPodsAsync"/>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="12" Class="ma-4">
-                            <MudPaper Class="ma-2 pa-2">
-                                <MudTextField @bind-Value="_cmd" Label="Command" 
-                                              HelperText="Custom Command. Default is /usr/local/bin/start.sh">
-                                </MudTextField>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12">
-                            <PodTable KubeXTermTabPanel="_kubeXtermTabPanel" Cmd="@_cmd" ></PodTable>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="8">
-                <KubeXTermTabPanel @ref=_kubeXtermTabPanel ></KubeXTermTabPanel>
-            </MudItem>
+                <div id="sandbox-splitter" class="sandbox-splitter" title="Drag to resize">
+                    <div class="sandbox-splitter-handle"></div>
+                </div>
 
-        </MudGrid>       
+                <div id="sandbox-right" class="sandbox-right-panel">
+                    <div class="sandbox-terminal-container">
+                        <KubeXTermTabPanel></KubeXTermTabPanel>
+                    </div>
+                </div>
+            </div>
+        </div>
     </Authorized>
     <NotAuthorized>
         Unauthorized
@@ -82,79 +182,61 @@
 </AuthorizeView>
 
 @code {
-    
     private string _resourceTypeSelected = "Predefined";
     private PredefinedResourceDropdown _predefinedResourceDropdown;
     private CancellationTokenSource _cancellationTokenSource = new();
     private ResourceRequestForm _resourceRequestForm;
-    
-    private KubeXTermTabPanel _kubeXtermTabPanel;
-    private string _cmd = "/usr/local/bin/start.sh"; //"/bin/sh";*/
+    private string _cmd = "/usr/local/bin/start.sh";
 
-    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if(_predefinedResourceDropdown != null)
-            await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
-    }
+        if (firstRender)
+        {
+            if (_predefinedResourceDropdown != null)
+                await _predefinedResourceDropdown.PopulatePredifinedPodsAsync();
 
-    protected override async Task OnInitializedAsync()
-    {
-        
+            await JsRuntime.InvokeVoidAsync("sandboxSplitter.init",
+                "sandbox-grid", "sandbox-left", "sandbox-splitter");
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
-        // Cancel and dispose of the cancellation token source
         await _cancellationTokenSource.CancelAsync();
-        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource.Dispose();
+        try { await JsRuntime.InvokeVoidAsync("sandboxSplitter.dispose"); } catch { }
     }
-    
-    /// <summary>
-    /// Request Kubernetes resource asynchronously.
-    /// </summary>
-    private async Task RequestK8SResourceAsync(string username) //Probably should be generic list of ENV variable
+
+    private async Task RequestK8SResourceAsync(string username)
     {
-        
         if (_resourceTypeSelected == "Predefined")
         {
-            //Since there is no deep copy for a k8s pod resources object
-            V1Pod tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_predefinedResourceDropdown._selectedPredefinedPod));
-            //tmpPodContainers =
-            V1EnvVar tmpVar = new V1EnvVar("DYNAMIC_USER", username);
-            foreach (V1Container container in tmpPod.Spec.Containers)
+            var tmpPod = KubernetesJson.Deserialize<V1Pod>(KubernetesJson.Serialize(_predefinedResourceDropdown._selectedPredefinedPod));
+            var tmpVar = new V1EnvVar("DYNAMIC_USER", username);
+            foreach (var container in tmpPod.Spec.Containers)
             {
-                if (container.Env == null)
-                {
-                    container.Env = new List<V1EnvVar>(); // Initialize if null
-                }
-
-                container.Env.Add(tmpVar); // Add the environment variable
+                container.Env ??= new List<V1EnvVar>();
+                container.Env.Add(tmpVar);
             }
 
-            tmpPod.Metadata.Name = _predefinedResourceDropdown._selectedPredefinedPod.Metadata.Name 
-                                   + "-" + System.Guid.NewGuid().ToString("N")[..4]; 
+            tmpPod.Metadata.Name = _predefinedResourceDropdown._selectedPredefinedPod.Metadata.Name
+                                   + "-" + Guid.NewGuid().ToString("N")[..4];
             await CreatePod(tmpPod);
             return;
         }
 
         await _resourceRequestForm.Validate();
-        
         if (_resourceRequestForm.K8SRequestFormSuccess)
         {
-            // Create the pod definition
             var pod = new V1Pod
+            {
+                ApiVersion = "v1",
+                Kind = "Pod",
+                Metadata = new V1ObjectMeta { Name = _resourceRequestForm.PodName },
+                Spec = new V1PodSpec
                 {
-                    ApiVersion = "v1",
-                    Kind = "Pod",
-                    Metadata = new V1ObjectMeta
-                    {
-                        Name = _resourceRequestForm.PodName
-                    },
-                    Spec = new V1PodSpec
-                    {
-                        Containers = new[]
-                        {
+                    Containers =
+                    [
                         new V1Container
                         {
                             Name = _resourceRequestForm.ContainerName,
@@ -162,56 +244,42 @@
                             ImagePullPolicy = _resourceRequestForm.ImagePullPolicy,
                             Env = _resourceRequestForm.EnvVars
                         }
-                    },
-                        ImagePullSecrets =
-                        [
-                            new V1LocalObjectReference
-                            {
-                                Name = _resourceRequestForm.ImagePullSecret
-                            }
-                        ]
-                    }
-                };
-
-            bool result = await CreatePod((pod));
+                    ],
+                    ImagePullSecrets =
+                    [
+                        new V1LocalObjectReference { Name = _resourceRequestForm.ImagePullSecret }
+                    ]
+                }
+            };
+            await CreatePod(pod);
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="pod"></param>
-    /// <returns></returns>
     private async Task<bool> CreatePod(V1Pod pod)
     {
         try
         {
             var createdPod = await KubeXTermK8SManager.K8SClient.CoreV1.CreateNamespacedPodAsync(pod, "default");
             Snackbar.Add($"Pod '{createdPod.Metadata.Name}' created successfully.", Severity.Success);
+            return true;
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error creating pod: {ex.Message}", Severity.Error);
             return false;
         }
-        return true;
     }
-    
+
     private Dictionary<string, string> _rowConnectionTypes = new();
 
     private string GetConnectionType(string podName)
     {
         if (!_rowConnectionTypes.ContainsKey(podName))
-        {
-            _rowConnectionTypes[podName] = Utils.K8SConnectionType.Bash; // Default value
-        }
+            _rowConnectionTypes[podName] = Utils.K8SConnectionType.Bash;
         return _rowConnectionTypes[podName];
     }
 
     private void SetConnectionType(string podName, string connectionType)
-    {
-        _rowConnectionTypes[podName] = connectionType;
-    }
-    
+        => _rowConnectionTypes[podName] = connectionType;
 }
 

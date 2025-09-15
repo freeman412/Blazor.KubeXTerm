@@ -1,0 +1,31 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div id="@_hostId" class="kxterm-resize-host">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public required Guid HostId { get; set; } = Guid.NewGuid();
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+
+    private string _hostId => $"resize-host-{HostId:N}";
+    private bool _registered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_registered)
+        {
+            await JS.InvokeVoidAsync("kxt.registerDrawerAutoFit", _hostId);
+            _registered = true;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_registered)
+        {
+            await JS.InvokeVoidAsync("kxt.unregisterDrawerAutoFit", _hostId);
+        }
+    }
+}

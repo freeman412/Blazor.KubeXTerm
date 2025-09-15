@@ -3,12 +3,14 @@ using System.Text.Json;
 using Blazor.KubeXTerm.Demo.Components;
 using Blazor.KubeXTerm.Demo.Services;
 using MudBlazor.Services;
+using FreemanCraft.MudBlazorAddons.Services;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using Blazor.KubeXTerm.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -154,8 +156,20 @@ builder.Services.AddScoped<HttpClient>(sp => new HttpClient
     BaseAddress = new Uri("https://localhost:44317/") // Set to your API's base URL
 });
 
+//Drawer service to manage the drawer state
+builder.Services.AddScoped<DrawerService>();
+builder.Services.AddScoped<KubeXTermDrawerService>();
+
 // Register KubeXTermK8SManager as a service
-builder.Services.AddScoped<KubeXTermK8SManager>();
+builder.Services.AddScoped<KubeXTermK8SManager>(); 
+builder.Services.AddScoped<KubeXTermSessionRegistry>();
+
+//Bottom Dock Terminal Service
+builder.Services.AddScoped<BottomDockTerminalService>();
+builder.Services.AddScoped<BottomDockService>();
+
+// Add this line with your other service registrations
+builder.Services.AddScoped<KubeXTermTabPanelService>();
 
 var app = builder.Build();
 

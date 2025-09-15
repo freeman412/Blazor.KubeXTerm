@@ -1,7 +1,15 @@
 ﻿@using Blazor.DiscoBall.Components
 @inherits LayoutComponentBase
+@implements IDisposable
 
+@using Blazor.KubeXTerm.Demo.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using FreemanCraft.MudBlazorAddons.Components.DockedView
+@using FreemanCraft.MudBlazorAddons.Components.Drawer
+@using FreemanCraft.MudBlazorAddons.Components.Drawer
+@using FreemanCraft.MudBlazorAddons.Services
+@inject DrawerService DrawerService
+@inject KubeXTermDrawerService KubeXTermPanelService
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -54,11 +62,17 @@
         @* <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" /> *@
 
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="@DrawerVariant.Mini">
+    <MudDrawer @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2"
+               Variant="@DrawerVariant.Mini">
         <NavMenu />
     </MudDrawer>
     <MudMainContent Class="mt-16 pa-4">
         @Body
+        <BottomDrawerStack Drawers="DrawerService.Drawers" />
+        <DrawerDock></DrawerDock>
+        <BottomDockView></BottomDockView>
     </MudMainContent>
 </MudLayout>
 
@@ -78,6 +92,10 @@
     private DiscoBall _discoBall;
     private bool _discoBallIsMoving = true;
     private int _discoAlerts = 1;
+
+    // Keep references to delegates so we can unsubscribe
+    private Action _drawerServiceHandler;
+    private Action _panelServiceHandler;
 
     private async Task ToggleDiscoBallMotion()
     {
@@ -114,6 +132,14 @@
                 }
             }
         };
+
+        // Subscribe to DrawerService.OnChange (fires on add/remove/resize)
+        _drawerServiceHandler = () => InvokeAsync(StateHasChanged);
+        DrawerService.OnChange += _drawerServiceHandler;
+
+        // (Optional) still listen to our wrapper if we want
+        _panelServiceHandler = () => InvokeAsync(StateHasChanged);
+        KubeXTermPanelService.DrawersChanged += _panelServiceHandler;
 
         StateHasChanged();
     }
@@ -173,6 +199,15 @@
         true => Icons.Material.Rounded.AutoMode,
         false => Icons.Material.Outlined.DarkMode,
     };
+
+    public void Dispose()
+    {
+        if (_drawerServiceHandler is not null)
+            DrawerService.OnChange -= _drawerServiceHandler;
+
+        if (_panelServiceHandler is not null)
+            KubeXTermPanelService.DrawersChanged -= _panelServiceHandler;
+    }
 }
 
 
