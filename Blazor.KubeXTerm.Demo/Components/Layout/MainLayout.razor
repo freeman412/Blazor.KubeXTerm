@@ -1,5 +1,6 @@
 ﻿@using Blazor.DiscoBall.Components
 @inherits LayoutComponentBase
+@implements IDisposable
 
 @using Blazor.KubeXTerm.Demo.Services
 @using Microsoft.AspNetCore.Components.Authorization
@@ -198,6 +199,15 @@
         true => Icons.Material.Rounded.AutoMode,
         false => Icons.Material.Outlined.DarkMode,
     };
+
+    public void Dispose()
+    {
+        if (_drawerServiceHandler is not null)
+            DrawerService.OnChange -= _drawerServiceHandler;
+
+        if (_panelServiceHandler is not null)
+            KubeXTermPanelService.DrawersChanged -= _panelServiceHandler;
+    }
 }
 
 
