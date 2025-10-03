@@ -1,0 +1,45 @@
+﻿@using MudBlazor;
+@using Blazor.KubeXTerm.Components;
+
+<MudFileUpload 
+               T="IReadOnlyList<IBrowserFile>"
+               @ref="@_fileUpload"
+               @ondrop="@ClearDragClass"
+               @ondragenter="@SetDragClass"
+               @ondragleave="@ClearDragClass"
+               @ondragend="@ClearDragClass"
+               AppendMultipleFiles="true"
+               FilesChanged="ProcessFiles"
+               Hidden="true"
+>
+    <ActivatorContent>
+        <MudContainer Class="@_dragClass">
+            @KubernetesTerminal
+        </MudContainer>
+    </ActivatorContent>
+</MudFileUpload>
+
+@code {
+    [Parameter, EditorRequired] public KubernetesTerminal KubernetesTerminal { get; set; } = null!;
+    private MudFileUpload<IReadOnlyList<IBrowserFile>>? _fileUpload;
+    private const string DefaultDragClass = "relative rounded-lg border-2 border-dashed pa-4 mt-4 mud-width-full mud-height-full";
+    private string _dragClass = DefaultDragClass;
+
+
+    private async Task ProcessFiles()
+    {
+        Console.WriteLine($"Processing files...");
+    }
+
+    private async Task UploadFile(IBrowserFile file)
+    {
+        
+    }
+
+    //TODO: These should be updated to overlay over the terminal when dragging files over
+    private void SetDragClass()
+        => _dragClass = $"{DefaultDragClass} mud-border-primary";
+
+    private void ClearDragClass()
+        => _dragClass = DefaultDragClass;
+}
